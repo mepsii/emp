@@ -5,6 +5,7 @@ const AdmZip = require('adm-zip');
 
 let mainWindow = null;
 let activeSkinDir = '';
+let currentVisualizerPreset = 0;
 
 // Register wmp-skin:// and wmp-media:// protocol handlers
 protocol.registerSchemesAsPrivileged([
@@ -113,6 +114,39 @@ function createWindow() {
       {
         label: 'Stop',
         click: () => mainWindow.webContents.send('menu-playback', 'stop')
+      },
+      { type: 'separator' },
+      {
+        label: 'Visualizations',
+        submenu: [
+          {
+            label: 'Bars',
+            type: 'radio',
+            checked: currentVisualizerPreset === 0,
+            click: () => {
+              currentVisualizerPreset = 0;
+              mainWindow.webContents.send('menu-visualizer', 0);
+            }
+          },
+          {
+            label: 'Waveform',
+            type: 'radio',
+            checked: currentVisualizerPreset === 1,
+            click: () => {
+              currentVisualizerPreset = 1;
+              mainWindow.webContents.send('menu-visualizer', 1);
+            }
+          },
+          {
+            label: 'Off',
+            type: 'radio',
+            checked: currentVisualizerPreset === 2,
+            click: () => {
+              currentVisualizerPreset = 2;
+              mainWindow.webContents.send('menu-visualizer', 2);
+            }
+          }
+        ]
       },
       { type: 'separator' },
       {
@@ -260,6 +294,42 @@ async function buildApplicationMenu() {
           click: () => {
             if (mainWindow) mainWindow.webContents.send('menu-playback', 'stop');
           }
+        },
+        { type: 'separator' },
+        {
+          label: 'Visualizations',
+          submenu: [
+            {
+              label: 'Bars',
+              type: 'radio',
+              checked: currentVisualizerPreset === 0,
+              click: () => {
+                currentVisualizerPreset = 0;
+                if (mainWindow) mainWindow.webContents.send('menu-visualizer', 0);
+                buildApplicationMenu();
+              }
+            },
+            {
+              label: 'Waveform',
+              type: 'radio',
+              checked: currentVisualizerPreset === 1,
+              click: () => {
+                currentVisualizerPreset = 1;
+                if (mainWindow) mainWindow.webContents.send('menu-visualizer', 1);
+                buildApplicationMenu();
+              }
+            },
+            {
+              label: 'Off',
+              type: 'radio',
+              checked: currentVisualizerPreset === 2,
+              click: () => {
+                currentVisualizerPreset = 2;
+                if (mainWindow) mainWindow.webContents.send('menu-visualizer', 2);
+                buildApplicationMenu();
+              }
+            }
+          ]
         }
       ]
     }
@@ -293,6 +363,11 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
   if (win) {
     win.setIgnoreMouseEvents(ignore, options);
   }
+});
+
+ipcMain.on('visualizer-preset-changed', (event, preset) => {
+  currentVisualizerPreset = preset;
+  buildApplicationMenu(); // Rebuild application menu to update checked state
 });
 
 ipcMain.handle('drag-window', (event, deltaX, deltaY) => {

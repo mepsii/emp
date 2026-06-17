@@ -99,13 +99,19 @@ class WMPElementWrapper {
   get left() { return this.el ? (parseInt(this.el.style.left) || 0) : this._left; }
   set left(val) {
     this._left = parseInt(val) || 0;
-    if (this.el) this.el.style.left = this._left + 'px';
+    if (this.el) {
+      this.el.style.left = this._left + 'px';
+      updateElementMaskPosition(this.el);
+    }
   }
 
   get top() { return this.el ? (parseInt(this.el.style.top) || 0) : this._top; }
   set top(val) {
     this._top = parseInt(val) || 0;
-    if (this.el) this.el.style.top = this._top + 'px';
+    if (this.el) {
+      this.el.style.top = this._top + 'px';
+      updateElementMaskPosition(this.el);
+    }
   }
 
   get textWidth() { return this.el ? (this.el.scrollWidth || 0) : 0; }
@@ -131,11 +137,42 @@ class WMPElementWrapper {
     return window.mediacenter.effectPreset;
   }
   set currentPreset(val) {
-    window.mediacenter.effectPreset = parseInt(val) || 0;
+    const preset = parseInt(val) || 0;
+    window.mediacenter.effectPreset = preset;
+    if (window.electronAPI && window.electronAPI.setVisualizerPreset) {
+      window.electronAPI.setVisualizerPreset(preset);
+    }
+  }
+  get currentEffectTitle() {
+    const preset = this.currentPreset;
+    if (preset === 0) return 'Bars';
+    if (preset === 1) return 'Waveform';
+    return 'Off';
+  }
+  get currentPresetTitle() {
+    const preset = this.currentPreset;
+    if (preset === 0) return 'Scope Bars';
+    if (preset === 1) return 'Oscilloscope';
+    return 'Visualization Off';
   }
   next() {
     this.currentPreset = (this.currentPreset + 1) % 3;
     console.log('WMP Visualizer cycled preset to:', this.currentPreset);
+  }
+  nextPreset() {
+    this.next();
+  }
+  nextpreset() {
+    this.next();
+  }
+  previousPreset() {
+    this.currentPreset = (this.currentPreset - 1 + 3) % 3;
+  }
+  previouspreset() {
+    this.previousPreset();
+  }
+  previous() {
+    this.previousPreset();
   }
 
   // Window view control delegates (to support views overridden as elements)
@@ -447,6 +484,17 @@ function setupMenuListeners() {
     else if (action === 'pause') window.player.controls.pause();
     else if (action === 'stop') window.player.controls.stop();
   });
+
+  window.electronAPI.onMenuVisualizer((preset) => {
+    window.mediacenter.effectPreset = preset;
+    if (window.displayVisText) {
+      try {
+        window.displayVisText();
+      } catch (e) {
+        console.error('Failed to trigger displayVisText:', e);
+      }
+    }
+  });
 }
 
 // Setup Dashboard UI
@@ -732,10 +780,30 @@ async function renderView(viewNode) {
   viewDiv.style.width = width + 'px';
   viewDiv.style.height = height + 'px';
   
+  // Establish stacking context
+  const zIndex = viewNode.getAttribute('zIndex') || viewNode.getAttribute('zindex') || '1';
+  viewDiv.style.zIndex = zIndex;
+  
   const bgImage = viewNode.getAttribute('backgroundImage') || viewNode.getAttribute('backgroundimage');
   if (bgImage) {
     const processedBg = await getProcessedSkinImageURL(bgImage, transparencyColor, clippingColor);
-    viewDiv.style.backgroundImage = `url("${processedBg}")`;
+    const maskBg = await getProcessedSkinMaskURL(bgImage, transparencyColor, clippingColor);
+    const bgDiv = document.createElement('div');
+    bgDiv.className = 'wmp-view-bg';
+    bgDiv.style.position = 'absolute';
+    bgDiv.style.left = '0';
+    bgDiv.style.top = '0';
+    bgDiv.style.width = '100%';
+    bgDiv.style.height = '100%';
+    bgDiv.style.backgroundImage = `url("${processedBg}")`;
+    bgDiv.style.backgroundRepeat = 'no-repeat';
+    bgDiv.style.backgroundPosition = 'top left';
+    bgDiv.style.zIndex = '0';
+    bgDiv.style.pointerEvents = 'none';
+    viewDiv.appendChild(bgDiv);
+
+    // Store mask image on dataset so children (like visualizers) can mask themselves dynamically
+    viewDiv.dataset.maskImage = maskBg;
   } else {
     viewDiv.style.backgroundColor = viewNode.getAttribute('backgroundColor') || viewNode.getAttribute('backgroundcolor') || 'transparent';
   }
@@ -798,9 +866,9 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     let sWidth = width;
     let sHeight = height;
 
+    let processedBg = '';
     if (bgImage) {
-      const processedBg = await getProcessedSkinImageURL(bgImage, transColor, clipColor);
-      el.style.backgroundImage = `url("${processedBg}")`;
+      processedBg = await getProcessedSkinImageURL(bgImage, transColor, clipColor);
 
       // Auto-resolve dimensions from background image if not set in attributes
       if (!sWidth || !sHeight) {
@@ -829,6 +897,26 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
       el.style.height = sHeight + 'px';
     }
 
+    if (processedBg) {
+      const bgDiv = document.createElement('div');
+      bgDiv.className = 'wmp-subview-bg';
+      bgDiv.style.position = 'absolute';
+      bgDiv.style.left = '0';
+      bgDiv.style.top = '0';
+      bgDiv.style.width = '100%';
+      bgDiv.style.height = '100%';
+      bgDiv.style.backgroundImage = `url("${processedBg}")`;
+      bgDiv.style.backgroundRepeat = 'no-repeat';
+      bgDiv.style.backgroundPosition = 'top left';
+      bgDiv.style.zIndex = '0';
+      bgDiv.style.pointerEvents = 'none';
+      el.appendChild(bgDiv);
+
+      // Store mask image on dataset so children (like visualizers) can mask themselves dynamically
+      const maskBg = await getProcessedSkinMaskURL(bgImage, transColor, clipColor);
+      el.dataset.maskImage = maskBg;
+    }
+
     if (visible === 'false') {
       el.style.display = 'none';
     }
@@ -850,7 +938,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     el = createText(xmlNode);
 
   } else if (tagName === 'effects') {
-    el = createVisualizer(xmlNode);
+    el = createVisualizer(xmlNode, parentEl);
 
   } else if (tagName === 'playlist') {
     el = createPlaylist(xmlNode);
@@ -886,6 +974,14 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     if (id) {
       window[id] = wrapper;
     }
+
+    // Apply zIndex stacking to allow visualizer elements to render behind background textures
+    const zIndex = xmlNode.getAttribute('zIndex') || xmlNode.getAttribute('zindex');
+    let defaultZIndex = '1';
+    if (tagName === 'effects') {
+      defaultZIndex = '-1';
+    }
+    el.style.zIndex = zIndex || defaultZIndex;
 
     // Set up data binding for attributes
     for (let attr of xmlNode.attributes) {
@@ -1698,7 +1794,7 @@ function createText(xmlNode) {
 // AUDIO VISUALIZERS (<effects>)
 // ------------------------------------------
 
-function createVisualizer(xmlNode) {
+function createVisualizer(xmlNode, parentEl) {
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width') || '60';
@@ -1712,6 +1808,36 @@ function createVisualizer(xmlNode) {
   container.style.width = width + 'px';
   container.style.height = height + 'px';
   container.style.overflow = 'hidden';
+  container.style.backgroundColor = '#000'; // Black background by default like original media player
+
+  // Find the nearest ancestor with a mask image to clip visualizer to the window shape
+  if (parentEl) {
+    let ancestor = parentEl;
+    let maskImage = null;
+    let accumLeft = parseInt(left) || 0;
+    let accumTop = parseInt(top) || 0;
+
+    while (ancestor) {
+      if (ancestor.dataset && ancestor.dataset.maskImage) {
+        maskImage = ancestor.dataset.maskImage;
+        break;
+      }
+      accumLeft += ancestor.offsetLeft || 0;
+      accumTop += ancestor.offsetTop || 0;
+      ancestor = ancestor.parentElement;
+    }
+
+    if (maskImage) {
+      container.style.webkitMaskImage = `url("${maskImage}")`;
+      container.style.webkitMaskPosition = `-${accumLeft}px -${accumTop}px`;
+      container.style.webkitMaskRepeat = 'no-repeat';
+      container.style.webkitMaskSize = 'auto';
+      container.style.maskImage = `url("${maskImage}")`;
+      container.style.maskPosition = `-${accumLeft}px -${accumTop}px`;
+      container.style.maskRepeat = 'no-repeat';
+      container.style.maskSize = 'auto';
+    }
+  }
   if (xmlNode.getAttribute('visible') === 'false') {
     container.style.display = 'none';
   }
@@ -1737,32 +1863,75 @@ function createVisualizer(xmlNode) {
   const drawVis = () => {
     if (!ctx) return;
     
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear and fill with black to guarantee a solid black background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     const isPlaying = window.player.playState === wmppsPlaying;
+    const currentPreset = window.mediacenter ? (window.mediacenter.effectPreset % 3) : 0;
+
+    if (currentPreset === 2) {
+      // Preset 2 is "Off" - do not draw visualizer
+      requestAnimationFrame(drawVis);
+      return;
+    }
     
     if (isPlaying && audioAnalyser) {
-      const bufferLength = audioAnalyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      audioAnalyser.getByteFrequencyData(dataArray);
+      if (currentPreset === 0) {
+        // Preset 0: Bars
+        const bufferLength = audioAnalyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        audioAnalyser.getByteFrequencyData(dataArray);
 
-      // Draw standard green dancing visualizer bars matching WMP retro themes
-      const barWidth = (canvas.width / bufferLength) * 1.5;
-      let x = 0;
+        // Draw standard green dancing visualizer bars matching WMP retro themes
+        const barWidth = (canvas.width / bufferLength) * 1.5;
+        let x = 0;
 
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height;
-        ctx.fillStyle = '#48E163'; // retro green
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-        x += barWidth;
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * canvas.height;
+          ctx.fillStyle = '#48E163'; // retro green
+          ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+          x += barWidth;
+        }
+      } else if (currentPreset === 1) {
+        // Preset 1: Waveform / Scope (Oscilloscope)
+        const bufferLength = audioAnalyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        audioAnalyser.getByteTimeDomainData(dataArray);
+
+        ctx.strokeStyle = '#48E163';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+          x += sliceWidth;
+        }
+        ctx.lineTo(canvas.width, canvas.height / 2);
+        ctx.stroke();
       }
     } else {
-      // Draw idle tiny noise line/wave
+      // Draw idle line matching the preset type
       ctx.strokeStyle = '#48E163';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, canvas.height / 2);
-      ctx.lineTo(canvas.width, canvas.height / 2);
+      if (currentPreset === 0) {
+        // Draw flat line at the bottom for bars
+        ctx.moveTo(0, canvas.height - 2);
+        ctx.lineTo(canvas.width, canvas.height - 2);
+      } else {
+        // Draw flat line in the center for waveform
+        ctx.moveTo(0, canvas.height / 2);
+        ctx.lineTo(canvas.width, canvas.height / 2);
+      }
       ctx.stroke();
     }
 
@@ -2057,6 +2226,41 @@ function createEqualizerSettings(xmlNode) {
   el.style.display = 'none';
   const eqState = new WMPEqualizerSettings();
   return { el, state: eqState };
+}
+
+// Visualizer Masking & Clipping Helpers
+const maskCache = new Map();
+async function getProcessedSkinMaskURL(imageName, transColor, clipColor) {
+  // Generate a mask where ONLY the clippingColor is transparent (and transColor is opaque)
+  const cacheKey = `${imageName}_mask_${clipColor}`;
+  if (maskCache.has(cacheKey)) {
+    return maskCache.get(cacheKey);
+  }
+  const url = `wmp-skin://local/${encodeURIComponent(imageName)}`;
+  const processedUrl = await loadAndProcessImage(url, null, clipColor);
+  maskCache.set(cacheKey, processedUrl);
+  return processedUrl;
+}
+
+function updateElementMaskPosition(el) {
+  if (!el || !el.style.webkitMaskImage || el.style.webkitMaskImage === 'none') return;
+  
+  let ancestor = el.parentElement;
+  let accumLeft = parseInt(el.style.left) || 0;
+  let accumTop = parseInt(el.style.top) || 0;
+  
+  while (ancestor) {
+    if (ancestor.dataset && ancestor.dataset.maskImage) {
+      break;
+    }
+    accumLeft += ancestor.offsetLeft || 0;
+    accumTop += ancestor.offsetTop || 0;
+    ancestor = ancestor.parentElement;
+  }
+  
+  const maskPos = `-${accumLeft}px -${accumTop}px`;
+  el.style.webkitMaskPosition = maskPos;
+  el.style.maskPosition = maskPos;
 }
 
 
