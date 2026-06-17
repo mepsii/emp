@@ -4,6 +4,7 @@ An incredibly basic, vibecoded, media player in electron, its sole purpose is to
 
 ## Features
 * essentially complete support for goo skin. most others have not been tested yet
+* compared directly against wmp9 in a xp vm, to try and get it as accurate feeling as possible
 * some classic styled visualizers
 * nostalgia bait for desktop screenshots
 
