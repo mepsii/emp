@@ -263,15 +263,19 @@ async function loadSkin(skinPathOrZip) {
     }
   });
 
-  // 5. Call onLoad event of all views if defined
-  for (const viewNode of viewNodes) {
-    const viewId = viewNode.getAttribute('id');
-    const viewWrapper = window[viewId];
-    const onLoadScript = viewNode.getAttribute('onLoad') || viewNode.getAttribute('onload');
-    if (onLoadScript && viewWrapper) {
-      executeScriptWithContext(onLoadScript, viewWrapper);
+  // 5. Call onLoad event of all views if defined (deferred slightly to ensure browser layout is calculated)
+  setTimeout(() => {
+    for (const viewNode of viewNodes) {
+      const viewId = viewNode.getAttribute('id') || 'view';
+      const viewWrapper = window[viewId];
+      if (viewWrapper && wmpViews.includes(viewWrapper)) {
+        const onLoadScript = viewNode.getAttribute('onLoad') || viewNode.getAttribute('onload');
+        if (onLoadScript) {
+          executeScriptWithContext(onLoadScript, viewWrapper);
+        }
+      }
     }
-  }
+  }, 50);
 
   // 6. Update layout
   updateVirtualLayout();
@@ -331,6 +335,9 @@ async function renderView(viewNode) {
   const viewId = viewNode.getAttribute('id') || 'view';
   const wrapper = new WMPElementWrapper(viewDiv, viewNode);
   window[viewId] = wrapper;
+  if (window.skinRegisteredGlobals) {
+    window.skinRegisteredGlobals.push(viewId);
+  }
   wmpViews.push(wrapper);
 
   // Implement Window Dragging on background click
@@ -492,6 +499,9 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     }
     if (id) {
       window[id] = wrapper;
+      if (window.skinRegisteredGlobals) {
+        window.skinRegisteredGlobals.push(id);
+      }
     }
 
     // Apply zIndex stacking to allow visualizer elements to render behind background textures

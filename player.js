@@ -101,6 +101,12 @@ class WMPPlayer {
     this._eventListeners[ev].push(callback);
   }
 
+  clearSkinListeners() {
+    for (const ev in this._eventListeners) {
+      this._eventListeners[ev] = this._eventListeners[ev].filter(cb => typeof cb !== 'string');
+    }
+  }
+
   triggerEvent(event) {
     const ev = event.toLowerCase();
     if (this._eventListeners[ev]) {

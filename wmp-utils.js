@@ -9,6 +9,7 @@ var audioContext = null;
 var animationFrameId = null;
 var wmpViews = [];
 var loadedScripts = new Set();
+var skinRegisteredGlobals = [];
 var currentContextView = null;
 var draggedView = null;
 var dragStartX = 0;
@@ -146,6 +147,23 @@ function returnToMediaCenter() {
     if (window.wmpViews) window.wmpViews.length = 0;
     if (window.activeBindings) window.activeBindings.length = 0;
     if (window.loadedScripts) window.loadedScripts.clear();
+
+    // Clean up skin-registered global variables to avoid pollution
+    if (window.skinRegisteredGlobals) {
+      window.skinRegisteredGlobals.forEach(id => {
+        try {
+          delete window[id];
+        } catch (e) {
+          window[id] = undefined;
+        }
+      });
+      window.skinRegisteredGlobals.length = 0;
+    }
+
+    // Reset player skin-specific event listeners
+    if (window.player && window.player.clearSkinListeners) {
+      window.player.clearSkinListeners();
+    }
     
     // Stop ignoring mouse events on the main dashboard
     if (window.electronAPI && window.electronAPI.setIgnoreMouseEvents) {

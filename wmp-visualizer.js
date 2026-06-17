@@ -89,8 +89,17 @@ function createVisualizer(xmlNode, parentEl) {
   }
 
   // Draw audio visualizer animation loop
+  let wasConnected = false;
   const drawVis = () => {
-    if (!ctx || !canvas.isConnected) return;
+    if (!ctx) return;
+    
+    if (canvas.isConnected) {
+      wasConnected = true;
+    }
+    
+    if (wasConnected && !canvas.isConnected) {
+      return;
+    }
     
     // Clear and fill with black to guarantee a solid black background
     ctx.fillStyle = '#000000';
@@ -114,12 +123,14 @@ function createVisualizer(xmlNode, parentEl) {
 
         // Draw standard green dancing visualizer bars matching WMP retro themes
         const barWidth = (canvas.width / bufferLength) * 1.5;
+        const gap = barWidth > 2 ? 1 : 0;
+        const drawWidth = Math.max(1, barWidth - gap);
         let x = 0;
 
         for (let i = 0; i < bufferLength; i++) {
           const barHeight = (dataArray[i] / 255) * canvas.height;
           ctx.fillStyle = '#48E163'; // retro green
-          ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+          ctx.fillRect(x, canvas.height - barHeight, drawWidth, barHeight);
           x += barWidth;
         }
       } else if (currentPreset === 1) {

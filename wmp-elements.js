@@ -153,6 +153,55 @@ class WMPElementWrapper {
   }
   get textwidth() { return this.textWidth; }
 
+  get scrolling() {
+    return this.el ? this.el.classList.contains('wmp-text-scrolling') : this._scrolling;
+  }
+  set scrolling(val) {
+    const isScroll = (val === true || val === 'true' || val === 1 || val === '1');
+    this._scrolling = isScroll;
+    if (this.el && (this.el.tagName === 'SPAN' || this.el.classList.contains('wmp-text'))) {
+      const hasClass = this.el.classList.contains('wmp-text-scrolling');
+      if (isScroll && !hasClass) {
+        this.el.classList.add('wmp-text-scrolling');
+        this.el.style.overflow = 'hidden';
+        this.el.style.whiteSpace = 'nowrap';
+        this.el.style.display = 'inline-block';
+        
+        let scrollerWrapper = this.el.querySelector('div');
+        if (!scrollerWrapper) {
+          const currentText = this.el.textContent;
+          this.el.textContent = '';
+          
+          scrollerWrapper = document.createElement('div');
+          scrollerWrapper.style.display = 'inline-block';
+          scrollerWrapper.style.whiteSpace = 'nowrap';
+          scrollerWrapper.style.width = 'max-content';
+
+          const seg1 = document.createElement('span');
+          seg1.className = 'wmp-text-seg1';
+          seg1.textContent = currentText;
+
+          const spacer = document.createElement('span');
+          spacer.innerHTML = ' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ';
+
+          const seg2 = document.createElement('span');
+          seg2.className = 'wmp-text-seg2';
+          seg2.textContent = currentText;
+
+          scrollerWrapper.appendChild(seg1);
+          scrollerWrapper.appendChild(spacer);
+          scrollerWrapper.appendChild(seg2);
+          this.el.appendChild(scrollerWrapper);
+        }
+      } else if (!isScroll && hasClass) {
+        this.el.classList.remove('wmp-text-scrolling');
+        const seg1 = this.el.querySelector('.wmp-text-seg1');
+        const textVal = seg1 ? seg1.textContent : this.el.textContent;
+        this.el.textContent = textVal;
+      }
+    }
+  }
+
   // Tooltip bindings
   get toolTip() { return this.el ? this.el.title : this._tooltip; }
   set toolTip(val) {
