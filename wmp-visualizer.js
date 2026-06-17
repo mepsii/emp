@@ -90,7 +90,7 @@ function createVisualizer(xmlNode, parentEl) {
 
   // Draw audio visualizer animation loop
   const drawVis = () => {
-    if (!ctx) return;
+    if (!ctx || !canvas.isConnected) return;
     
     // Clear and fill with black to guarantee a solid black background
     ctx.fillStyle = '#000000';

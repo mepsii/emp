@@ -226,14 +226,8 @@ class WMPElementWrapper {
     }
   }
   returnToMediaCenter() {
-    const container = document.getElementById('skin-container');
-    const dashboard = document.getElementById('dashboard');
-    if (container && dashboard) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      dashboard.style.display = 'flex';
-      window.electronAPI.setIgnoreMouseEvents(false);
-      window.electronAPI.resizeWindow(450, 520);
+    if (window.returnToMediaCenter) {
+      window.returnToMediaCenter();
     }
   }
   returntoMediaCenter() {
@@ -284,14 +278,8 @@ const dashboardViewFallback = {
   minimize: () => window.electronAPI.minimizeWindow(),
   close: () => window.electronAPI.closeWindow(),
   returnToMediaCenter: () => {
-    const container = document.getElementById('skin-container');
-    const dashboard = document.getElementById('dashboard');
-    if (container && dashboard) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      dashboard.style.display = 'flex';
-      window.electronAPI.setIgnoreMouseEvents(false);
-      window.electronAPI.resizeWindow(450, 520);
+    if (window.returnToMediaCenter) {
+      window.returnToMediaCenter();
     }
   }
 };

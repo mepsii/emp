@@ -129,3 +129,31 @@ function updateElementMaskPosition(el) {
   el.style.webkitMaskPosition = maskPos;
   el.style.maskPosition = maskPos;
 }
+
+function returnToMediaCenter() {
+  const container = document.getElementById('skin-container');
+  const dashboard = document.getElementById('dashboard');
+  if (container && dashboard) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    dashboard.style.display = 'flex';
+    
+    // Reset layout and binding states
+    if (window.animationFrameId) {
+      cancelAnimationFrame(window.animationFrameId);
+      window.animationFrameId = null;
+    }
+    if (window.wmpViews) window.wmpViews.length = 0;
+    if (window.activeBindings) window.activeBindings.length = 0;
+    if (window.loadedScripts) window.loadedScripts.clear();
+    
+    // Stop ignoring mouse events on the main dashboard
+    if (window.electronAPI && window.electronAPI.setIgnoreMouseEvents) {
+      window.electronAPI.setIgnoreMouseEvents(false);
+    }
+    
+    // Reset Electron window back to default size for dashboard
+    window.electronAPI.resizeWindow(450, 520);
+  }
+}
+window.returnToMediaCenter = returnToMediaCenter;

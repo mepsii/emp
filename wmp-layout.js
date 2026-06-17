@@ -149,7 +149,10 @@ window.addEventListener('mousemove', (e) => {
   }
 
   // Mouse click-through ignore check
-  if (wmpViews.length > 0) {
+  const dashboard = document.getElementById('dashboard');
+  if (dashboard && dashboard.style.display !== 'none') {
+    window.electronAPI.setIgnoreMouseEvents(false);
+  } else if (wmpViews.length > 0) {
     if (draggedView || window.isDraggingSlider) {
       window.electronAPI.setIgnoreMouseEvents(false);
     } else {

@@ -338,15 +338,8 @@ class WMPView {
   }
 
   returnToMediaCenter() {
-    // Show host dashboard again
-    const container = document.getElementById('skin-container');
-    const dashboard = document.getElementById('dashboard');
-    if (container && dashboard) {
-      container.style.display = 'none';
-      container.innerHTML = '';
-      dashboard.style.display = 'flex';
-      // Set Electron window back to default size for dashboard
-      window.electronAPI.resizeWindow(450, 520);
+    if (window.returnToMediaCenter) {
+      window.returnToMediaCenter();
     }
   }
 }
