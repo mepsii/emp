@@ -117,11 +117,25 @@ class WMPElementWrapper {
     }
   }
 
-  get minWidth() { return this.node ? (parseInt(this.node.getAttribute('minWidth') || this.node.getAttribute('minwidth')) || this.width) : this.width; }
+  get minWidth() {
+    if (this._minWidth !== undefined) return this._minWidth;
+    return this.node ? (parseInt(this.node.getAttribute('minWidth') || this.node.getAttribute('minwidth')) || this.width) : this.width;
+  }
+  set minWidth(val) {
+    this._minWidth = parseInt(val) || 0;
+  }
   get minwidth() { return this.minWidth; }
+  set minwidth(val) { this.minWidth = val; }
   
-  get minHeight() { return this.node ? (parseInt(this.node.getAttribute('minHeight') || this.node.getAttribute('minheight')) || this.height) : this.height; }
+  get minHeight() {
+    if (this._minHeight !== undefined) return this._minHeight;
+    return this.node ? (parseInt(this.node.getAttribute('minHeight') || this.node.getAttribute('minheight')) || this.height) : this.height;
+  }
+  set minHeight(val) {
+    this._minHeight = parseInt(val) || 0;
+  }
   get minheight() { return this.minHeight; }
+  set minheight(val) { this.minHeight = val; }
 
   get left() { return this.el ? (parseInt(this.el.style.left) || 0) : this._left; }
   set left(val) {
@@ -142,6 +156,7 @@ class WMPElementWrapper {
   }
 
   get textWidth() {
+    if (this._textWidth !== undefined) return this._textWidth;
     if (this.el) {
       if (this.el.classList.contains('wmp-text-scrolling')) {
         const seg1 = this.el.querySelector('.wmp-text-seg1');
@@ -151,7 +166,11 @@ class WMPElementWrapper {
     }
     return 0;
   }
+  set textWidth(val) {
+    this._textWidth = parseInt(val) || 0;
+  }
   get textwidth() { return this.textWidth; }
+  set textwidth(val) { this.textWidth = val; }
 
   get scrolling() {
     return this.el ? this.el.classList.contains('wmp-text-scrolling') : this._scrolling;
@@ -229,16 +248,24 @@ class WMPElementWrapper {
     }
   }
   get currentEffectTitle() {
+    if (this._currentEffectTitle !== undefined) return this._currentEffectTitle;
     const preset = this.currentPreset;
     if (preset === 0) return 'Bars';
     if (preset === 1) return 'Waveform';
     return 'Off';
   }
+  set currentEffectTitle(val) {
+    this._currentEffectTitle = val;
+  }
   get currentPresetTitle() {
+    if (this._currentPresetTitle !== undefined) return this._currentPresetTitle;
     const preset = this.currentPreset;
     if (preset === 0) return 'Scope Bars';
     if (preset === 1) return 'Oscilloscope';
     return 'Visualization Off';
+  }
+  set currentPresetTitle(val) {
+    this._currentPresetTitle = val;
   }
   next() {
     this.currentPreset = (this.currentPreset + 1) % 3;
