@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Legacy WMP Skin Player</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- Dashboard for selecting skins / audio when no skin is loaded -->
+  <div id="dashboard" class="dashboard">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">▲</span>
+        <h1>Windows Media Player Legacy</h1>
+      </div>
+      <p class="subtitle">macOS Skin Interpreter & Runtime Engine</p>
+    </header>
+    
+    <main>
+      <section class="section">
+        <h2>Available Skins</h2>
+        <div id="skin-list" class="skin-grid">
+          <!-- Dynamically populated -->
+          <div class="skin-card loading">Scanning skins...</div>
+        </div>
+      </section>
+
+      <section class="controls-sec">
+        <button id="btn-custom-skin" class="btn btn-secondary">📂 Load Custom Skin (.wms / .wmz)</button>
+        <button id="btn-load-audio" class="btn btn-primary">🎵 Load Audio File</button>
+      </section>
+
+      <section class="status-sec">
+        <h3>Current Playback</h3>
+        <div class="playback-info">
+          <div id="info-title">No track loaded</div>
+          <div id="info-status">Stopped</div>
+        </div>
+      </section>
+    </main>
+    
+    <footer>
+      <p>Drag files directly or select from the list above. Click on a skin to launch.</p>
+    </footer>
+  </div>
+
+  <!-- Container where the parsed skin elements will live -->
+  <div id="skin-container" class="skin-container" style="display: none;"></div>
+
+  <!-- Audio Element for playback -->
+  <audio id="audio-backend"></audio>
+
+  <script src="player.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

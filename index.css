@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;700&display=swap');
+
+:root {
+  --bg-color: rgba(13, 15, 23, 0.75);
+  --glass-bg: rgba(22, 28, 45, 0.45);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-color: #6366f1;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --glow-color: rgba(99, 102, 241, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: transparent; /* Allows Electron transparent window */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--text-primary);
+  overflow: hidden;
+  user-select: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Glassmorphism Dashboard */
+.dashboard {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.4s ease-out;
+  -webkit-app-region: drag; /* Window can be dragged by clicking dashboard empty areas */
+}
+
+/* Make buttons/interactive elements non-draggable */
+button, .skin-card, footer, h2, input {
+  -webkit-app-region: no-drag;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+header {
+  margin-bottom: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 24px;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Skins Grid */
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.skin-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.skin-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 12px var(--glow-color);
+  transform: translateY(-2px);
+}
+
+.skin-card.active {
+  border-color: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.skin-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.skin-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.skin-card.loading {
+  grid-column: span 2;
+  text-align: center;
+  color: var(--text-muted);
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Buttons */
+.controls-sec {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: var(--accent-gradient);
+  color: white;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 6px 15px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Playback Section */
+.status-sec {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.status-sec h3 {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.playback-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#info-title {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+#info-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+footer {
+  margin-top: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Skin Container Styling */
+.skin-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+}
+
+/* Rendered skin absolute elements */
+.wmp-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  background-color: transparent;
+  user-select: none;
+}
+
+.wmp-subview {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-position: top left;
+  overflow: hidden;
+}
+
+.wmp-button-group {
+  position: absolute;
+  overflow: hidden;
+}
+
+.wmp-button {
+  position: absolute;
+  background-repeat: no-repeat;
+  background-position: top left;
+  cursor: pointer;
+}
+
+.wmp-slider {
+  position: absolute;
+  overflow: hidden;
+}
+
+.wmp-text {
+  position: absolute;
+  white-space: nowrap;
+  font-family: 'Courier New', monospace; /* Legacy player vibes */
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+/* Custom Scrollbars for dashboard */
+.dashboard::-webkit-scrollbar {
+  width: 4px;
+}
+.dashboard::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dashboard::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+.dashboard::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
