@@ -32,18 +32,17 @@ async function getProcessedSkinImageURL(imageName, transColor, clipColor) {
 
 const maskCache = new Map();
 async function getProcessedSkinMaskURL(imageName, transColor, clipColor) {
-  // Generate a mask where ONLY the clippingColor is transparent (and transColor is opaque)
-  const cacheKey = `${imageName}_mask_${clipColor}`;
+  const cacheKey = `${imageName}_mask_${transColor}_${clipColor}`;
   if (maskCache.has(cacheKey)) {
     return maskCache.get(cacheKey);
   }
   const url = `wmp-skin://local/${encodeURIComponent(imageName)}`;
-  const processedUrl = await loadAndProcessImage(url, null, clipColor);
+  const processedUrl = await loadAndProcessImage(url, transColor, clipColor, true);
   maskCache.set(cacheKey, processedUrl);
   return processedUrl;
 }
 
-function loadAndProcessImage(src, transparencyColor, clippingColor) {
+function loadAndProcessImage(src, transparencyColor, clippingColor, isMask = false) {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = src;
@@ -55,7 +54,7 @@ function loadAndProcessImage(src, transparencyColor, clippingColor) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0);
 
-        if (transparencyColor || clippingColor) {
+        if (transparencyColor || clippingColor || isMask) {
           const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imgData.data;
 
@@ -92,7 +91,11 @@ function loadAndProcessImage(src, transparencyColor, clippingColor) {
             const g = data[i + 1];
             const b = data[i + 2];
             
-            if (matchColor(r, g, b, tColor) || matchColor(r, g, b, cColor)) {
+            const matches = matchColor(r, g, b, tColor) || matchColor(r, g, b, cColor);
+            
+            if (isMask) {
+              data[i + 3] = matches ? 255 : 0;
+            } else if (matches) {
               data[i + 3] = 0; // Transparent alpha channel
             }
           }
