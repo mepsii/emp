@@ -981,7 +981,7 @@ function createText(xmlNode) {
       const loopWidth = seg1Width + spacerWidth;
 
       if (seg1Width > span.clientWidth) {
-        scrollPos += 0.35; // slow, smooth fractional increments
+        scrollPos += (window.textScrollSpeed || textScrollSpeed); // slow, smooth fractional increments
         if (scrollPos >= loopWidth) {
           scrollPos = 0; // seamless wrap reset
         }

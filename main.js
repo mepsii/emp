@@ -6,6 +6,7 @@ const AdmZip = require('adm-zip');
 let mainWindow = null;
 let activeSkinDir = '';
 let currentVisualizerPreset = 0;
+let currentScrollSpeed = 'slow';
 
 // Register wmp-skin:// and wmp-media:// protocol handlers
 protocol.registerSchemesAsPrivileged([
@@ -145,6 +146,44 @@ function createWindow() {
               currentVisualizerPreset = 2;
               mainWindow.webContents.send('menu-visualizer', 2);
             }
+          }
+        ]
+      },
+      { type: 'separator' },
+      {
+        label: 'Options',
+        submenu: [
+          {
+            label: 'Text Scroll Speed',
+            submenu: [
+              {
+                label: 'Slow Crawl (WMP Default)',
+                type: 'radio',
+                checked: currentScrollSpeed === 'slow',
+                click: () => {
+                  currentScrollSpeed = 'slow';
+                  mainWindow.webContents.send('menu-scroll-speed', 'slow');
+                }
+              },
+              {
+                label: 'Medium',
+                type: 'radio',
+                checked: currentScrollSpeed === 'medium',
+                click: () => {
+                  currentScrollSpeed = 'medium';
+                  mainWindow.webContents.send('menu-scroll-speed', 'medium');
+                }
+              },
+              {
+                label: 'Fast',
+                type: 'radio',
+                checked: currentScrollSpeed === 'fast',
+                click: () => {
+                  currentScrollSpeed = 'fast';
+                  mainWindow.webContents.send('menu-scroll-speed', 'fast');
+                }
+              }
+            ]
           }
         ]
       },
@@ -328,6 +367,47 @@ async function buildApplicationMenu() {
                 if (mainWindow) mainWindow.webContents.send('menu-visualizer', 2);
                 buildApplicationMenu();
               }
+            }
+          ]
+        },
+        { type: 'separator' },
+        {
+          label: 'Options',
+          submenu: [
+            {
+              label: 'Text Scroll Speed',
+              submenu: [
+                {
+                  label: 'Slow Crawl (WMP Default)',
+                  type: 'radio',
+                  checked: currentScrollSpeed === 'slow',
+                  click: () => {
+                    currentScrollSpeed = 'slow';
+                    if (mainWindow) mainWindow.webContents.send('menu-scroll-speed', 'slow');
+                    buildApplicationMenu();
+                  }
+                },
+                {
+                  label: 'Medium',
+                  type: 'radio',
+                  checked: currentScrollSpeed === 'medium',
+                  click: () => {
+                    currentScrollSpeed = 'medium';
+                    if (mainWindow) mainWindow.webContents.send('menu-scroll-speed', 'medium');
+                    buildApplicationMenu();
+                  }
+                },
+                {
+                  label: 'Fast',
+                  type: 'radio',
+                  checked: currentScrollSpeed === 'fast',
+                  click: () => {
+                    currentScrollSpeed = 'fast';
+                    if (mainWindow) mainWindow.webContents.send('menu-scroll-speed', 'fast');
+                    buildApplicationMenu();
+                  }
+                }
+              ]
             }
           ]
         }

@@ -46,6 +46,17 @@ function setupMenuListeners() {
       }
     }
   });
+
+  window.electronAPI.onMenuScrollSpeed((speed) => {
+    console.log('Menu scroll speed changed to:', speed);
+    if (speed === 'slow') {
+      window.textScrollSpeed = 0.15;
+    } else if (speed === 'medium') {
+      window.textScrollSpeed = 0.35;
+    } else if (speed === 'fast') {
+      window.textScrollSpeed = 0.75;
+    }
+  });
 }
 
 // Setup Dashboard UI

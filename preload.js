@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onMenuReturnDashboard: (callback) => ipcRenderer.on('menu-return-dashboard', () => callback()),
   onMenuPlayback: (callback) => ipcRenderer.on('menu-playback', (event, action) => callback(action)),
   setVisualizerPreset: (preset) => ipcRenderer.send('visualizer-preset-changed', preset),
-  onMenuVisualizer: (callback) => ipcRenderer.on('menu-visualizer', (event, preset) => callback(preset))
+  onMenuVisualizer: (callback) => ipcRenderer.on('menu-visualizer', (event, preset) => callback(preset)),
+  onMenuScrollSpeed: (callback) => ipcRenderer.on('menu-scroll-speed', (event, speed) => callback(speed))
 });

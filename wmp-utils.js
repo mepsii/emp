@@ -14,6 +14,7 @@ var draggedView = null;
 var dragStartX = 0;
 var dragStartY = 0;
 var isDraggingSlider = false;
+var textScrollSpeed = 0.15; // Default slow crawl speed
 
 // Process Hex Color Transparency mapping
 const imageCache = new Map();
