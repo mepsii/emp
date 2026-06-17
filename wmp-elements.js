@@ -14,7 +14,33 @@ class WMPElementWrapper {
     this._height = xmlNode ? (parseInt(xmlNode.getAttribute('height')) || 0) : 0;
     this._left = xmlNode ? (parseInt(xmlNode.getAttribute('left')) || 0) : 0;
     this._top = xmlNode ? (parseInt(xmlNode.getAttribute('top')) || 0) : 0;
-    this._tooltip = xmlNode ? (xmlNode.getAttribute('toolTip') || xmlNode.getAttribute('tooltip') || '') : '';
+    
+    this._tooltip = xmlNode ? (
+      xmlNode.getAttribute('upToolTip') || 
+      xmlNode.getAttribute('uptooltip') || 
+      xmlNode.getAttribute('toolTip') || 
+      xmlNode.getAttribute('tooltip') || 
+      ''
+    ) : '';
+
+    // Supply standard defaults if not specified
+    if (xmlNode && !this._tooltip) {
+      const tag = xmlNode.nodeName.toLowerCase();
+      const idLower = (xmlNode.getAttribute('id') || '').toLowerCase();
+      if (tag.startsWith('play')) this._tooltip = 'Play';
+      else if (tag.startsWith('pause')) this._tooltip = 'Pause';
+      else if (tag.startsWith('stop')) this._tooltip = 'Stop';
+      else if (tag.startsWith('prev')) this._tooltip = 'Previous';
+      else if (tag.startsWith('next')) this._tooltip = 'Next';
+      else if (tag === 'slider' || tag === 'customslider') {
+        if (idLower.includes('volume')) this._tooltip = 'Volume';
+        else if (idLower.includes('seek')) this._tooltip = 'Seek';
+      }
+    }
+
+    if (this.el && this._tooltip) {
+      this.el.title = this._tooltip;
+    }
   }
 
   get visible() {
@@ -373,11 +399,19 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     const elNodes = findChildNodes(xmlNode, tag);
     elNodes.forEach(node => {
       const btnId = node.getAttribute('id');
+      let toolTip = node.getAttribute('upToolTip') || node.getAttribute('uptooltip') || node.getAttribute('toolTip') || node.getAttribute('tooltip');
+      if (!toolTip) {
+        if (tag === 'playelement') toolTip = 'Play';
+        else if (tag === 'pauseelement') toolTip = 'Pause';
+        else if (tag === 'stopelement') toolTip = 'Stop';
+        else if (tag === 'prevelement') toolTip = 'Previous';
+        else if (tag === 'nextelement') toolTip = 'Next';
+      }
       const btnObj = {
         node,
         mappingColor: (node.getAttribute('mappingColor') || node.getAttribute('mappingcolor') || '').toLowerCase(),
         onClick: node.getAttribute('onClick') || node.getAttribute('onclick'),
-        toolTip: node.getAttribute('upToolTip') || node.getAttribute('uptooltip') || node.getAttribute('toolTip') || node.getAttribute('tooltip'),
+        toolTip,
         tag
       };
       buttons.push(btnObj);

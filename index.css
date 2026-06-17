@@ -290,6 +290,7 @@ footer {
 .wmp-slider {
   position: absolute;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .wmp-text {
