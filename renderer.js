@@ -481,7 +481,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     parentEl.appendChild(el);
 
     // Create wrapper for script lookup
-    const wrapper = new WMPElementWrapper(el, xmlNode);
+    const wrapper = el.wmpWrapper || new WMPElementWrapper(el, xmlNode);
     if (customState) {
       Object.assign(wrapper, customState);
       if (customState.reset) wrapper.reset = customState.reset.bind(wrapper);

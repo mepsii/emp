@@ -51,6 +51,7 @@ class WMPPlayer {
     this._openState = osMediaClosed;
     this._playState = wmppsStopped;
     this._eventListeners = {};
+    this.isSeeking = false;
     
     // Set up HTML5 Audio Event Listeners to drive state changes
     this.audio.addEventListener('loadstart', () => {
@@ -74,6 +75,12 @@ class WMPPlayer {
     });
     this.audio.addEventListener('timeupdate', () => {
       this.triggerEvent('position_onchange');
+    });
+    this.audio.addEventListener('seeking', () => {
+      this.isSeeking = true;
+    });
+    this.audio.addEventListener('seeked', () => {
+      this.isSeeking = false;
     });
 
     // Sub-objects
@@ -265,7 +272,8 @@ class WMPMedia {
   }
 
   get duration() {
-    return this.player.audio.duration || 0;
+    const d = this.player.audio.duration;
+    return (isNaN(d) || !isFinite(d)) ? 0 : d;
   }
 
   get durationString() {

@@ -53,6 +53,10 @@ async function loadSkinScripts(viewNode) {
 // Data bindings lookup frame loop
 function updateBindingsLoop() {
   for (const binding of activeBindings) {
+    if (binding.targetProperty === 'value' && binding.wrapper) {
+      if (binding.wrapper.isDragging) continue;
+      if (binding.propPath.includes('currentPosition') && window.player && window.player.isSeeking) continue;
+    }
     const val = resolveWmpProp(binding.propPath);
     if (val !== undefined && val !== binding.lastValue) {
       binding.lastValue = val;

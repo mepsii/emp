@@ -677,6 +677,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
   // Attach state to button element wrapper
   const wrapper = new WMPElementWrapper(btnDiv, xmlNode);
   Object.assign(wrapper, wrapperState);
+  btnDiv.wmpWrapper = wrapper;
 
   return btnDiv;
 }
@@ -815,35 +816,35 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
     });
   }
 
-  // Slider State Attributes
-  const state = {
-    min: parseFloat(xmlNode.getAttribute('min')) || 0,
-    max: parseFloat(xmlNode.getAttribute('max')) || 100,
-    value: 0,
-    direction: direction,
-    
-    // Updates the visual fill and thumb position from slider value
-    updateSliderUI: (val) => {
-      state.value = val;
-      const range = state.max - state.min;
-      const pct = range > 0 ? (val - state.min) / range : 0;
-      const clampedPct = Math.max(0, Math.min(1, pct));
+  // Attach state fields to slider wrapper object
+  const wrapper = new WMPElementWrapper(sliderDiv, xmlNode);
+  wrapper.min = parseFloat(xmlNode.getAttribute('min')) || 0;
+  wrapper.max = parseFloat(xmlNode.getAttribute('max')) || 100;
+  wrapper.value = 0;
+  wrapper.direction = direction;
+  wrapper.isDragging = false;
+  sliderDiv.wmpWrapper = wrapper;
 
-      if (state.direction === 'vertical') {
-        const topPos = clampedPct * (sHeight - thumbH);
-        if (thumbEl) {
-          thumbEl.style.top = (sHeight - thumbH - topPos) + 'px';
-          thumbEl.style.left = ((sWidth - thumbW) / 2) + 'px';
-        }
-        if (fillEl) fillEl.style.height = (clampedPct * 100) + '%';
-      } else {
-        const leftPos = clampedPct * (sWidth - thumbW);
-        if (thumbEl) {
-          thumbEl.style.left = leftPos + 'px';
-          thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
-        }
-        if (fillEl) fillEl.style.width = (clampedPct * 100) + '%';
+  // Updates the visual fill and thumb position from slider value
+  wrapper.updateSliderUI = (val) => {
+    const range = wrapper.max - wrapper.min;
+    const pct = range > 0 ? (val - wrapper.min) / range : 0;
+    const clampedPct = Math.max(0, Math.min(1, pct));
+
+    if (wrapper.direction === 'vertical') {
+      const topPos = clampedPct * (sHeight - thumbH);
+      if (thumbEl) {
+        thumbEl.style.top = (sHeight - thumbH - topPos) + 'px';
+        thumbEl.style.left = ((sWidth - thumbW) / 2) + 'px';
       }
+      if (fillEl) fillEl.style.height = (clampedPct * 100) + '%';
+    } else {
+      const leftPos = clampedPct * (sWidth - thumbW);
+      if (thumbEl) {
+        thumbEl.style.left = leftPos + 'px';
+        thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
+      }
+      if (fillEl) fillEl.style.width = (clampedPct * 100) + '%';
     }
   };
 
@@ -867,7 +868,7 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
       }
     } else {
       // Linear slider fallback
-      if (state.direction === 'vertical') {
+      if (wrapper.direction === 'vertical') {
         pct = 1 - (y / sHeight);
       } else {
         pct = x / sWidth;
@@ -876,8 +877,8 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
 
     // Clamp pct to [0, 1] range to avoid sending out-of-bounds inputs
     pct = Math.max(0, Math.min(1, pct));
-    const value = state.min + pct * (state.max - state.min);
-    state.updateSliderUI(value);
+    const value = wrapper.min + pct * (wrapper.max - wrapper.min);
+    wrapper.value = value;
 
     // Invoke events
     const onChangeCode = xmlNode.getAttribute('value_onchange') || xmlNode.getAttribute('value_onclick');
@@ -887,33 +888,28 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
     }
   };
 
-  let isDragging = false;
   sliderDiv.addEventListener('mousedown', (e) => {
-    isDragging = true;
+    wrapper.isDragging = true;
     window.isDraggingSlider = true;
     handlePositionSelection(e);
   });
 
   window.addEventListener('mousemove', (e) => {
-    if (isDragging) {
+    if (wrapper.isDragging) {
       handlePositionSelection(e);
     }
   });
 
   window.addEventListener('mouseup', () => {
-    if (isDragging) {
-      isDragging = false;
+    if (wrapper.isDragging) {
+      wrapper.isDragging = false;
       window.isDraggingSlider = false;
       const onDragEndCode = xmlNode.getAttribute('onDragEnd') || xmlNode.getAttribute('ondragend') || xmlNode.getAttribute('onmouseup');
       if (onDragEndCode) {
-        executeScriptWithContext(onDragEndCode.replace(/value/g, String(state.value)), contextViewWrapper);
+        executeScriptWithContext(onDragEndCode.replace(/value/g, String(wrapper.value)), contextViewWrapper);
       }
     }
   });
-
-  // Attach state fields to slider wrapper object
-  const wrapper = new WMPElementWrapper(sliderDiv, xmlNode);
-  Object.assign(wrapper, state);
 
   return sliderDiv;
 }
