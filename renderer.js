@@ -485,6 +485,8 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     let defaultZIndex = '1';
     if (tagName === 'effects') {
       defaultZIndex = '-1';
+    } else if (tagName === 'subview') {
+      defaultZIndex = '2'; // Subviews default to a higher stacking index than standalone controls
     }
     el.style.zIndex = zIndex || defaultZIndex;
 
