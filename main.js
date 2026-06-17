@@ -72,6 +72,11 @@ function createWindow() {
   mainWindow.loadFile('index.html');
   mainWindow.webContents.openDevTools({ mode: 'detach' }); // Enable debugging logs in a separate window
 
+  // Forward renderer console logs to main stdout
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console] ${message} (at ${sourceId}:${line})`);
+  });
+
   // Expose right-click context menu
   mainWindow.webContents.on('context-menu', async (event, params) => {
     const skins = await scanSkins();
@@ -283,6 +288,13 @@ app.on('window-all-closed', () => {
 });
 
 // IPC communication handlers
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.setIgnoreMouseEvents(ignore, options);
+  }
+});
+
 ipcMain.handle('drag-window', (event, deltaX, deltaY) => {
   if (mainWindow) {
     const [x, y] = mainWindow.getPosition();

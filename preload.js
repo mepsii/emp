@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listLocalSkins: () => ipcRenderer.invoke('list-local-skins'),
   selectSkinFile: () => ipcRenderer.invoke('select-skin-file'),
   dragWindow: (deltaX, deltaY) => ipcRenderer.invoke('drag-window', deltaX, deltaY),
+  setIgnoreMouseEvents: (ignore, options) => ipcRenderer.send('set-ignore-mouse-events', ignore, options),
   onMenuOpenMedia: (callback) => ipcRenderer.on('menu-open-media', (event, filePath) => callback(filePath)),
   onMenuLoadSkin: (callback) => ipcRenderer.on('menu-load-skin', (event, skinPath) => callback(skinPath)),
   onMenuReturnDashboard: (callback) => ipcRenderer.on('menu-return-dashboard', () => callback()),

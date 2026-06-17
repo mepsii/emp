@@ -41,6 +41,13 @@ class WMPElementWrapper {
     if (this.el) {
       this.el.style.display = show ? 'block' : 'none';
     }
+    // Call layout update when visibility shifts on views
+    if (this.node && this.node.nodeName.toLowerCase() === 'view' && window.updateVirtualLayout) {
+      if (show && (this.vx === undefined || this.vy === undefined)) {
+        positionNewView(this);
+      }
+      window.updateVirtualLayout();
+    }
   }
 
   get value() {
@@ -69,13 +76,25 @@ class WMPElementWrapper {
   set width(val) {
     this._width = parseInt(val) || 0;
     if (this.el) this.el.style.width = this._width + 'px';
+    if (this.node && this.node.nodeName.toLowerCase() === 'view' && window.updateVirtualLayout) {
+      window.updateVirtualLayout();
+    }
   }
 
   get height() { return this.el ? (parseInt(this.el.style.height) || 0) : this._height; }
   set height(val) {
     this._height = parseInt(val) || 0;
     if (this.el) this.el.style.height = this._height + 'px';
+    if (this.node && this.node.nodeName.toLowerCase() === 'view' && window.updateVirtualLayout) {
+      window.updateVirtualLayout();
+    }
   }
+
+  get minWidth() { return this.node ? (parseInt(this.node.getAttribute('minWidth') || this.node.getAttribute('minwidth')) || this.width) : this.width; }
+  get minwidth() { return this.minWidth; }
+  
+  get minHeight() { return this.node ? (parseInt(this.node.getAttribute('minHeight') || this.node.getAttribute('minheight')) || this.height) : this.height; }
+  get minheight() { return this.minHeight; }
 
   get left() { return this.el ? (parseInt(this.el.style.left) || 0) : this._left; }
   set left(val) {
@@ -124,7 +143,14 @@ class WMPElementWrapper {
     window.electronAPI.minimizeWindow();
   }
   close() {
-    window.electronAPI.closeWindow();
+    if (this.id === 'mainView' || this.id === 'controlView') {
+      window.electronAPI.closeWindow();
+    } else {
+      this.visible = false;
+      if (window.updateVirtualLayout) {
+        window.updateVirtualLayout();
+      }
+    }
   }
   returnToMediaCenter() {
     const container = document.getElementById('skin-container');
@@ -133,11 +159,257 @@ class WMPElementWrapper {
       container.style.display = 'none';
       container.innerHTML = '';
       dashboard.style.display = 'flex';
+      window.electronAPI.setIgnoreMouseEvents(false);
       window.electronAPI.resizeWindow(450, 520);
     }
   }
   returntoMediaCenter() {
     this.returnToMediaCenter();
+  }
+
+  moveTo(left, top, duration) {
+    const l = parseInt(left);
+    const t = parseInt(top);
+    const dur = parseInt(duration) || 0;
+
+    if (this.el) {
+      if (dur > 0) {
+        this.el.style.transition = `left ${dur}ms ease, top ${dur}ms ease`;
+        setTimeout(() => {
+          if (this.el) this.el.style.transition = '';
+          const onEndMove = this.node.getAttribute('onEndMove') || this.node.getAttribute('onendmove');
+          if (onEndMove) {
+            executeScriptWithContext(onEndMove, currentContextView);
+          }
+        }, dur);
+      } else {
+        this.el.style.transition = '';
+      }
+      this.left = l;
+      this.top = t;
+    } else {
+      this._left = l;
+      this._top = t;
+    }
+  }
+
+  moveto(left, top, duration) {
+    return this.moveTo(left, top, duration);
+  }
+
+  setColumnResizeMode(index, mode) {
+    console.log(`WMP playlist.setColumnResizeMode(${index}, ${mode}) called`);
+  }
+
+  setcolumnresizemode(index, mode) {
+    return this.setColumnResizeMode(index, mode);
+  }
+}
+
+// Global views and scripts registries
+let wmpViews = [];
+let loadedScripts = new Set();
+let currentContextView = null;
+let draggedView = null;
+let dragStartX = 0;
+let dragStartY = 0;
+
+// Fallback view object when no skin is loaded (e.g. dashboard)
+const dashboardViewFallback = {
+  minimize: () => window.electronAPI.minimizeWindow(),
+  close: () => window.electronAPI.closeWindow(),
+  returnToMediaCenter: () => {
+    const container = document.getElementById('skin-container');
+    const dashboard = document.getElementById('dashboard');
+    if (container && dashboard) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      dashboard.style.display = 'flex';
+      window.electronAPI.setIgnoreMouseEvents(false);
+      window.electronAPI.resizeWindow(450, 520);
+    }
+  }
+};
+
+// Expose context-sensitive window.view object
+Object.defineProperty(window, 'view', {
+  get: () => {
+    return currentContextView || window.mainView || wmpViews.find(v => v.id === 'mainView') || wmpViews[0] || dashboardViewFallback;
+  },
+  set: (val) => {},
+  configurable: true
+});
+
+// Snapping and Layout Positioning
+function positionNewView(viewWrapper) {
+  const main = wmpViews.find(v => (v.id === 'mainView' || v.id === 'mediaSwitcherView') && v.visible);
+  if (!main) {
+    viewWrapper.vx = 0;
+    viewWrapper.vy = 0;
+    return;
+  }
+
+  const gap = 0; // standard WMP border-to-border snap
+  if (viewWrapper.id === 'plView' || viewWrapper.id === 'visView') {
+    viewWrapper.vx = main.vx;
+    viewWrapper.vy = main.vy + main.height + gap;
+  } else if (viewWrapper.id === 'eqView') {
+    const pl = window['plView'];
+    if (pl && pl.visible) {
+      viewWrapper.vx = pl.vx;
+      viewWrapper.vy = pl.vy + pl.height + gap;
+    } else {
+      viewWrapper.vx = main.vx;
+      viewWrapper.vy = main.vy + main.height + gap;
+    }
+  } else if (viewWrapper.id === 'videoView') {
+    viewWrapper.vx = main.vx + main.width + gap;
+    viewWrapper.vy = main.vy;
+  } else if (viewWrapper.id === 'infoView') {
+    viewWrapper.vx = main.vx - viewWrapper.width - gap;
+    viewWrapper.vy = main.vy;
+  } else {
+    viewWrapper.vx = main.vx + main.width + gap;
+    viewWrapper.vy = main.vy;
+  }
+}
+
+function updateVirtualLayout() {
+  const visibleViews = wmpViews.filter(v => v.visible && v.width > 0 && v.height > 0);
+  if (visibleViews.length === 0) return;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const v of visibleViews) {
+    if (v.vx === undefined) v.vx = 0;
+    if (v.vy === undefined) v.vy = 0;
+    minX = Math.min(minX, v.vx);
+    minY = Math.min(minY, v.vy);
+    maxX = Math.max(maxX, v.vx + v.width);
+    maxY = Math.max(maxY, v.vy + v.height);
+  }
+
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  const shiftX = minX;
+  const shiftY = minY;
+
+  if (shiftX !== 0 || shiftY !== 0) {
+    for (const v of wmpViews) {
+      if (v.vx !== undefined) v.vx -= shiftX;
+      if (v.vy !== undefined) v.vy -= shiftY;
+    }
+    window.electronAPI.dragWindow(shiftX, shiftY);
+  }
+
+  window.electronAPI.resizeWindow(width, height);
+
+  for (const v of wmpViews) {
+    if (v.el) {
+      if (v.visible && v.width > 0 && v.height > 0) {
+        v.el.style.display = 'block';
+        v.el.style.left = (v.vx || 0) + 'px';
+        v.el.style.top = (v.vy || 0) + 'px';
+        v.el.style.width = v.width + 'px';
+        v.el.style.height = v.height + 'px';
+      } else {
+        v.el.style.display = 'none';
+      }
+    }
+  }
+}
+
+function setupWindowDragging(element, viewWrapper) {
+  element.addEventListener('mousedown', (e) => {
+    if (e.target === element || e.target.classList.contains('wmp-subview')) {
+      draggedView = viewWrapper;
+      dragStartX = e.screenX;
+      dragStartY = e.screenY;
+    }
+  });
+}
+
+// Global Drag & Snapping + Click-through handler
+window.addEventListener('mousemove', (e) => {
+  // Dragging logic
+  if (draggedView) {
+    if (e.buttons !== 1) {
+      draggedView = null;
+    } else {
+      const deltaX = e.screenX - dragStartX;
+      const deltaY = e.screenY - dragStartY;
+      dragStartX = e.screenX;
+      dragStartY = e.screenY;
+
+      if (draggedView.vx === undefined) draggedView.vx = 0;
+      if (draggedView.vy === undefined) draggedView.vy = 0;
+
+      draggedView.vx += deltaX;
+      draggedView.vy += deltaY;
+
+      const snapTolerance = 12;
+      const visibleViews = wmpViews.filter(v => v.visible && v.width > 0 && v.height > 0 && v !== draggedView);
+
+      for (const other of visibleViews) {
+        // Horizontal Snapping
+        if (Math.abs(draggedView.vx - (other.vx + other.width)) < snapTolerance) {
+          draggedView.vx = other.vx + other.width;
+          if (Math.abs(draggedView.vy - other.vy) < snapTolerance) draggedView.vy = other.vy;
+        } else if (Math.abs((draggedView.vx + draggedView.width) - other.vx) < snapTolerance) {
+          draggedView.vx = other.vx - draggedView.width;
+          if (Math.abs(draggedView.vy - other.vy) < snapTolerance) draggedView.vy = other.vy;
+        }
+
+        // Vertical Snapping
+        if (Math.abs(draggedView.vy - (other.vy + other.height)) < snapTolerance) {
+          draggedView.vy = other.vy + other.height;
+          if (Math.abs(draggedView.vx - other.vx) < snapTolerance) draggedView.vx = other.vx;
+        } else if (Math.abs((draggedView.vy + draggedView.height) - other.vy) < snapTolerance) {
+          draggedView.vy = other.vy - draggedView.height;
+          if (Math.abs(draggedView.vx - other.vx) < snapTolerance) draggedView.vx = other.vx;
+        }
+
+        // Align coordinates if close
+        if (Math.abs(draggedView.vx - other.vx) < snapTolerance) {
+          draggedView.vx = other.vx;
+        }
+        if (Math.abs(draggedView.vy - other.vy) < snapTolerance) {
+          draggedView.vy = other.vy;
+        }
+      }
+
+      updateVirtualLayout();
+    }
+  }
+
+  // Mouse click-through ignore check
+  if (wmpViews.length > 0) {
+    const insideView = e.target && e.target.closest && e.target.closest('.wmp-view');
+    if (insideView) {
+      window.electronAPI.setIgnoreMouseEvents(false);
+    } else {
+      window.electronAPI.setIgnoreMouseEvents(true, { forward: true });
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  draggedView = null;
+});
+
+function executeScriptWithContext(code, contextViewWrapper) {
+  const oldView = window.view;
+  if (contextViewWrapper) {
+    currentContextView = contextViewWrapper;
+  }
+  try {
+    executeScript(code);
+  } finally {
+    currentContextView = oldView;
   }
 }
 
@@ -292,8 +564,10 @@ function initAudioVisualizer() {
 // ==========================================
 
 async function loadSkin(skinPathOrZip) {
-  // Clear any existing visualizer loops and bindings
+  // Clear any existing visualizer loops, bindings, and views
   activeBindings = [];
+  wmpViews = [];
+  loadedScripts.clear();
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
   }
@@ -338,18 +612,35 @@ async function loadSkin(skinPathOrZip) {
   // 1. Traverse and render XML elements into HTML
   await renderSkinTheme(themeNode);
 
-  // 2. Parse and evaluate scripts associated with the view
-  const viewNode = findChildNode(themeNode, 'view');
-  if (viewNode) {
-    await loadSkinScripts(viewNode);
-    
-    // Call onLoad event of view if defined
-    const onLoadScript = viewNode.getAttribute('onLoad') || viewNode.getAttribute('onload');
-    if (onLoadScript) {
-      executeScript(onLoadScript);
-    }
+  // Override WMPTheme view manipulation dynamically
+  if (window.theme) {
+    window.theme.openView = (id) => {
+      console.log('WMP theme.openView called for:', id);
+      const v = window[id];
+      if (v) {
+        v.visible = true;
+      }
+    };
+    window.theme.openview = window.theme.openView;
 
-    // Call onload of player events if defined
+    window.theme.closeView = (id) => {
+      console.log('WMP theme.closeView called for:', id);
+      const v = window[id];
+      if (v) {
+        v.visible = false;
+      }
+    };
+    window.theme.closeview = window.theme.closeView;
+  }
+
+  // 2. Parse and evaluate scripts associated with all views
+  const viewNodes = findChildNodes(themeNode, 'view');
+  for (const viewNode of viewNodes) {
+    await loadSkinScripts(viewNode);
+  }
+
+  // 3. Call onload of player events if defined
+  for (const viewNode of viewNodes) {
     const playerNode = findChildNode(viewNode, 'player');
     if (playerNode) {
       for (let attr of playerNode.attributes) {
@@ -361,7 +652,27 @@ async function loadSkin(skinPathOrZip) {
     }
   }
 
-  // 3. Start binding loop
+  // 4. Default secondary views to hidden initially (to be opened by onload events)
+  wmpViews.forEach(v => {
+    if (v.id !== 'controlView' && v.id !== 'mainView' && v.id !== 'mediaSwitcherView') {
+      v.visible = false;
+    }
+  });
+
+  // 5. Call onLoad event of all views if defined
+  for (const viewNode of viewNodes) {
+    const viewId = viewNode.getAttribute('id');
+    const viewWrapper = window[viewId];
+    const onLoadScript = viewNode.getAttribute('onLoad') || viewNode.getAttribute('onload');
+    if (onLoadScript && viewWrapper) {
+      executeScriptWithContext(onLoadScript, viewWrapper);
+    }
+  }
+
+  // 6. Update layout
+  updateVirtualLayout();
+
+  // 7. Start binding loop
   updateBindingsLoop();
 }
 
@@ -403,10 +714,6 @@ async function renderView(viewNode) {
   const clippingColor = viewNode.getAttribute('clippingColor') || viewNode.getAttribute('clippingcolor');
   const transparencyColor = viewNode.getAttribute('transparencyColor') || viewNode.getAttribute('transparencycolor');
 
-  // Set Electron Window Size to match WMS view
-  window.view.width = width;
-  window.view.height = height;
-
   const viewDiv = document.createElement('div');
   viewDiv.className = 'wmp-view';
   viewDiv.style.width = width + 'px';
@@ -422,57 +729,25 @@ async function renderView(viewNode) {
 
   // Expose view to global scripts
   const viewId = viewNode.getAttribute('id') || 'view';
-  window[viewId] = new WMPElementWrapper(viewDiv, viewNode);
+  const wrapper = new WMPElementWrapper(viewDiv, viewNode);
+  window[viewId] = wrapper;
+  wmpViews.push(wrapper);
 
   // Implement Window Dragging on background click
-  setupWindowDragging(viewDiv);
+  setupWindowDragging(viewDiv, wrapper);
 
   // Render children
   for (let child of viewNode.childNodes) {
     if (child.nodeType === Node.ELEMENT_NODE) {
-      await renderElement(child, viewDiv, transparencyColor, clippingColor);
+      await renderElement(child, viewDiv, transparencyColor, clippingColor, wrapper);
     }
   }
 
   skinContainer.appendChild(viewDiv);
 }
 
-// Setup custom dragging on view background areas
-function setupWindowDragging(element) {
-  let isDragging = false;
-  let startX = 0;
-  let startY = 0;
-
-  element.addEventListener('mousedown', (e) => {
-    // Only drag if clicking exactly on the background, not inside interactive buttons/sliders
-    if (e.target === element || e.target.classList.contains('wmp-subview')) {
-      isDragging = true;
-      startX = e.screenX;
-      startY = e.screenY;
-    }
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    // Stop dragging if the left mouse button was released (handles releasing outside the window bounds)
-    if (e.buttons !== 1) {
-      isDragging = false;
-    }
-    if (isDragging) {
-      const deltaX = e.screenX - startX;
-      const deltaY = e.screenY - startY;
-      startX = e.screenX;
-      startY = e.screenY;
-      window.electronAPI.dragWindow(deltaX, deltaY);
-    }
-  });
-
-  window.addEventListener('mouseup', () => {
-    isDragging = false;
-  });
-}
-
 // Render generic elements like subviews, buttongroups, sliders, text
-async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColor) {
+async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColor, contextViewWrapper) {
   const tagName = xmlNode.nodeName.toLowerCase();
   
   if (tagName === 'player') return; // Handled separately
@@ -495,6 +770,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
   }
 
   let el = null;
+  let customState = null;
 
   if (tagName === 'subview') {
     el = document.createElement('div');
@@ -547,15 +823,15 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     // Recursively render subview elements
     for (let child of xmlNode.childNodes) {
       if (child.nodeType === Node.ELEMENT_NODE) {
-        await renderElement(child, el, transColor, clipColor);
+        await renderElement(child, el, transColor, clipColor, contextViewWrapper);
       }
     }
 
   } else if (tagName === 'buttongroup') {
-    el = await createButtonGroup(xmlNode, parentTransColor, parentClipColor);
+    el = await createButtonGroup(xmlNode, parentTransColor, parentClipColor, contextViewWrapper);
     
   } else if (tagName === 'slider' || tagName === 'customslider') {
-    el = await createSlider(xmlNode, parentTransColor, parentClipColor);
+    el = await createSlider(xmlNode, parentTransColor, parentClipColor, contextViewWrapper);
 
   } else if (tagName === 'text') {
     el = createText(xmlNode);
@@ -563,8 +839,22 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
   } else if (tagName === 'effects') {
     el = createVisualizer(xmlNode);
 
+  } else if (tagName === 'playlist') {
+    el = createPlaylist(xmlNode);
+
+  } else if (tagName === 'video') {
+    el = createVideoElement(xmlNode);
+
+  } else if (tagName === 'videosettings') {
+    el = createVideoSettings(xmlNode);
+
+  } else if (tagName === 'equalizersettings') {
+    const res = createEqualizerSettings(xmlNode);
+    el = res.el;
+    customState = res.state;
+
   } else if (['button', 'playbutton', 'playelement', 'pausebutton', 'pauseelement', 'stopbutton', 'stopelement', 'prevbutton', 'prevbuttonselement', 'nextbutton', 'nextbuttonselement'].includes(tagName)) {
-    el = await createStandaloneButton(xmlNode, parentTransColor, parentClipColor);
+    el = await createStandaloneButton(xmlNode, parentTransColor, parentClipColor, contextViewWrapper);
   }
 
   if (el) {
@@ -572,6 +862,14 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
 
     // Create wrapper for script lookup
     const wrapper = new WMPElementWrapper(el, xmlNode);
+    if (customState) {
+      Object.assign(wrapper, customState);
+      if (customState.reset) wrapper.reset = customState.reset.bind(wrapper);
+      if (customState.nextPreset) wrapper.nextPreset = customState.nextPreset.bind(wrapper);
+      if (customState.previousPreset) wrapper.previousPreset = customState.previousPreset.bind(wrapper);
+      if (customState.nextpreset) wrapper.nextpreset = customState.nextpreset.bind(wrapper);
+      if (customState.previouspreset) wrapper.previouspreset = customState.previouspreset.bind(wrapper);
+    }
     if (id) {
       window[id] = wrapper;
     }
@@ -590,6 +888,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             wrapper,
             targetProperty: 'value',
             propPath,
+            contextView: contextViewWrapper,
             lastValue: undefined,
             updateFn: (val) => { wrapper.value = val; }
           });
@@ -598,6 +897,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             wrapper,
             targetProperty: 'max',
             propPath,
+            contextView: contextViewWrapper,
             lastValue: undefined,
             updateFn: (val) => { 
               wrapper.max = val;
@@ -609,6 +909,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             wrapper,
             targetProperty: 'min',
             propPath,
+            contextView: contextViewWrapper,
             lastValue: undefined,
             updateFn: (val) => { 
               wrapper.min = val;
@@ -620,6 +921,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             wrapper,
             targetProperty: 'visible',
             propPath,
+            contextView: contextViewWrapper,
             lastValue: undefined,
             updateFn: (val) => { wrapper.visible = val; }
           });
@@ -629,6 +931,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             wrapper,
             targetProperty: 'down',
             propPath,
+            contextView: contextViewWrapper,
             lastValue: undefined,
             updateFn: (val) => {
               wrapper.isDown = !!val;
@@ -641,7 +944,12 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
         const expr = attrVal.substring(8);
         const updateExpr = () => {
           try {
+            const oldView = window.view;
+            if (contextViewWrapper) {
+              currentContextView = contextViewWrapper;
+            }
             const val = (new Function(`return ${expr}`))();
+            currentContextView = oldView;
             if (attrName === 'top') {
               el.style.top = val + 'px';
             } else if (attrName === 'left') {
@@ -659,6 +967,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
           wrapper,
           targetProperty: attrName,
           propPath: expr,
+          contextView: contextViewWrapper,
           lastValue: undefined,
           updateFn: updateExpr
         });
@@ -671,7 +980,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
 // MAPPING IMAGE HIT-TEST BUTTON GROUPS
 // ------------------------------------------
 
-async function createButtonGroup(xmlNode, parentTransColor, parentClipColor) {
+async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, contextViewWrapper) {
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width');
@@ -815,7 +1124,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor) {
 
   bgDiv.addEventListener('mouseup', (e) => {
     if (isMouseDown && activeBtn) {
-      triggerButtonAction(activeBtn);
+      triggerButtonAction(activeBtn, contextViewWrapper);
       isMouseDown = false;
       if (hoverBg) bgDiv.style.backgroundImage = `url("${hoverBg}")`;
     }
@@ -830,9 +1139,9 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor) {
   return bgDiv;
 }
 
-function triggerButtonAction(btn) {
+function triggerButtonAction(btn, contextViewWrapper) {
   if (btn.onClick) {
-    executeScript(btn.onClick);
+    executeScriptWithContext(btn.onClick, contextViewWrapper);
     return;
   }
   
@@ -860,7 +1169,7 @@ function triggerButtonAction(btn) {
 // STANDALONE BUTTONS (non-grouped)
 // ------------------------------------------
 
-async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor) {
+async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor, contextViewWrapper) {
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width');
@@ -944,7 +1253,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
     }
     
     if (onClick) {
-      executeScript(onClick);
+      executeScriptWithContext(onClick, contextViewWrapper);
     } else {
       // Default tag actions
       if (tagName.startsWith('play')) window.player.controls.play();
@@ -968,7 +1277,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
 // CUSTOM SLIDERS & PROGRESS BARS
 // ------------------------------------------
 
-async function createSlider(xmlNode, parentTransColor, parentClipColor) {
+async function createSlider(xmlNode, parentTransColor, parentClipColor, contextViewWrapper) {
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width');
@@ -1079,7 +1388,10 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor) {
         mapCtx.drawImage(mapImg, 0, 0);
         r();
       };
-      mapImg.onerror = r;
+      mapImg.onerror = () => {
+        console.error('Failed to load positional hit map image:', positionImage);
+        r();
+      };
     });
   }
 
@@ -1144,7 +1456,7 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor) {
     // Invoke events
     const onChangeCode = xmlNode.getAttribute('value_onchange') || xmlNode.getAttribute('value_onclick');
     if (onChangeCode) {
-      executeScript(onChangeCode.replace(/value/g, String(value)));
+      executeScriptWithContext(onChangeCode.replace(/value/g, String(value)), contextViewWrapper);
     }
   };
 
@@ -1165,7 +1477,7 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor) {
       isDragging = false;
       const onDragEndCode = xmlNode.getAttribute('onDragEnd') || xmlNode.getAttribute('ondragend') || xmlNode.getAttribute('onmouseup');
       if (onDragEndCode) {
-        executeScript(onDragEndCode.replace(/value/g, String(state.value)));
+        executeScriptWithContext(onDragEndCode.replace(/value/g, String(state.value)), contextViewWrapper);
       }
     }
   });
@@ -1397,6 +1709,8 @@ async function loadSkinScripts(viewNode) {
   const scriptFiles = scriptFilesAttr.split(';').map(s => s.trim()).filter(s => s && !s.startsWith('res://'));
 
   for (let scriptName of scriptFiles) {
+    if (loadedScripts.has(scriptName)) continue;
+    loadedScripts.add(scriptName);
     const code = await window.electronAPI.readSkinTextFile(scriptName);
     if (code) {
       try {
@@ -1457,4 +1771,135 @@ function resolveWmpProp(path) {
   } catch (e) {
     return undefined;
   }
+}
+
+function createPlaylist(xmlNode) {
+  const left = xmlNode.getAttribute('left') || '0';
+  const top = xmlNode.getAttribute('top') || '0';
+  const width = xmlNode.getAttribute('width') || '100%';
+  const height = xmlNode.getAttribute('height') || '100%';
+
+  const el = document.createElement('div');
+  el.className = 'wmp-playlist';
+  el.style.position = 'absolute';
+  el.style.left = left.startsWith('jscript:') ? '0px' : (left + 'px');
+  el.style.top = top.startsWith('jscript:') ? '0px' : (top + 'px');
+  el.style.width = width.startsWith('jscript:') ? '100%' : (width + 'px');
+  el.style.height = height.startsWith('jscript:') ? '100%' : (height + 'px');
+  el.style.overflowY = 'auto';
+  el.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+  el.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+  el.style.padding = '8px';
+  el.style.fontFamily = 'monospace';
+  el.style.fontSize = '11px';
+  el.style.color = '#8ab4f8';
+
+  const updatePlaylistUI = () => {
+    const mediaName = window.player.currentMedia.name || 'No Track Loaded';
+    el.innerHTML = `
+      <div class="wmp-playlist-title" style="font-weight: bold; margin-bottom: 8px; color: #e8eaed; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 4px;">PLAYLIST</div>
+      <div class="wmp-playlist-item active" style="padding: 4px 6px; background: rgba(99, 102, 241, 0.15); border-left: 2px solid #6366f1; color: #fff; display: flex; justify-content: space-between; align-items: center;">
+        <span>▶ ${mediaName}</span>
+        <span style="color: #94a3b8;">${window.player.currentMedia.durationString || '--:--'}</span>
+      </div>
+    `;
+  };
+  updatePlaylistUI();
+
+  window.player.addEventListener('OpenState_onchange', updatePlaylistUI);
+  window.player.addEventListener('PlayState_onchange', updatePlaylistUI);
+
+  return el;
+}
+
+function createVideoElement(xmlNode) {
+  const left = xmlNode.getAttribute('left') || '0';
+  const top = xmlNode.getAttribute('top') || '0';
+  const width = xmlNode.getAttribute('width') || '100%';
+  const height = xmlNode.getAttribute('height') || '100%';
+
+  const el = document.createElement('div');
+  el.className = 'wmp-video-screen';
+  el.style.position = 'absolute';
+  el.style.left = left.startsWith('jscript:') ? '0px' : (left + 'px');
+  el.style.top = top.startsWith('jscript:') ? '0px' : (top + 'px');
+  el.style.width = width.startsWith('jscript:') ? '100%' : (width + 'px');
+  el.style.height = height.startsWith('jscript:') ? '100%' : (height + 'px');
+  el.style.backgroundColor = '#000';
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.style.color = '#374151';
+  el.style.fontFamily = 'sans-serif';
+  el.style.fontSize = '12px';
+  el.innerHTML = '<span style="color: #4b5563;">[ Video Screen ]</span>';
+
+  return el;
+}
+
+function createVideoSettings(xmlNode) {
+  const el = document.createElement('div');
+  el.style.display = 'none';
+  return el;
+}
+
+class WMPEqualizerSettings {
+  constructor() {
+    this.gainLevel1 = 0;
+    this.gainLevel2 = 0;
+    this.gainLevel3 = 0;
+    this.gainLevel4 = 0;
+    this.gainLevel5 = 0;
+    this.gainLevel6 = 0;
+    this.gainLevel7 = 0;
+    this.gainLevel8 = 0;
+    this.gainLevel9 = 0;
+    this.gainLevel10 = 0;
+    this.crossFade = false;
+    this.crossFadeWindow = 0;
+    this.enhancedAudio = false;
+    this.truBassLevel = 0;
+    this.wowLevel = 0;
+    this.currentPresetTitle = "Custom";
+    this.currentSpeakerName = "Stereo Speakers";
+  }
+
+  reset() {
+    console.log('WMP: eq.reset() called');
+    this.gainLevel1 = 0;
+    this.gainLevel2 = 0;
+    this.gainLevel3 = 0;
+    this.gainLevel4 = 0;
+    this.gainLevel5 = 0;
+    this.gainLevel6 = 0;
+    this.gainLevel7 = 0;
+    this.gainLevel8 = 0;
+    this.gainLevel9 = 0;
+    this.gainLevel10 = 0;
+    this.truBassLevel = 0;
+    this.wowLevel = 0;
+  }
+
+  nextPreset() {
+    console.log('WMP: eq.nextPreset() called');
+  }
+
+  nextpreset() {
+    this.nextPreset();
+  }
+
+  previousPreset() {
+    console.log('WMP: eq.previousPreset() called');
+  }
+
+  previouspreset() {
+    this.previousPreset();
+  }
+}
+
+function createEqualizerSettings(xmlNode) {
+  const el = document.createElement('div');
+  el.style.display = 'none';
+  const eqState = new WMPEqualizerSettings();
+  return { el, state: eqState };
 }

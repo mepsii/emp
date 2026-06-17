@@ -185,6 +185,18 @@ class WMPControls {
     console.log('WMP: previous() called (playlist not implemented)');
   }
 
+  isAvailable(action) {
+    const act = String(action).toLowerCase();
+    if (['play', 'pause', 'stop', 'next', 'previous'].includes(act)) {
+      return true;
+    }
+    return false;
+  }
+
+  isavailable(action) {
+    return this.isAvailable(action);
+  }
+
   get currentPosition() {
     return this.player.audio.currentTime;
   }
@@ -349,13 +361,25 @@ class WMPTheme {
     }
   }
 
+  savepreference(pref, val) {
+    return this.savePreference(pref, val);
+  }
+
   loadPreference(pref) {
     return localStorage.getItem(`wmp_pref_${pref}`) || '';
+  }
+
+  loadpreference(pref) {
+    return this.loadPreference(pref);
   }
 
   openView(id) {
     console.log('WMP: openView called for id:', id);
     // WMP skins can have multiple view tags, we usually just show the first one or toggle layouts.
+  }
+
+  openview(id) {
+    return this.openView(id);
   }
 }
 
