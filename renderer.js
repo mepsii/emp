@@ -653,9 +653,16 @@ async function loadSkin(skinPathOrZip) {
   }
 
   // 4. Default secondary views to hidden initially (to be opened by onload events)
+  let primaryView = wmpViews.find(v => v.id === 'mainView');
+  if (!primaryView) {
+    primaryView = wmpViews.find(v => v.width > 0 && v.height > 0 && v.id !== 'mediaSwitcherView');
+  }
+
   wmpViews.forEach(v => {
-    if (v.id !== 'controlView' && v.id !== 'mainView' && v.id !== 'mediaSwitcherView') {
+    if (v !== primaryView && v.id !== 'controlView' && v.id !== 'mediaSwitcherView') {
       v.visible = false;
+    } else {
+      v.visible = true;
     }
   });
 
@@ -1011,6 +1018,20 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   if (hoverImage) hoverBg = await getProcessedSkinImageURL(hoverImage, transColor, clipColor);
   if (downImage) downBg = await getProcessedSkinImageURL(downImage, transColor, clipColor);
 
+  const loadImg = (src) => {
+    return new Promise((resolve) => {
+      if (!src) return resolve(null);
+      const img = new Image();
+      img.src = src;
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+    });
+  };
+
+  const defaultImg = await loadImg(defaultBg);
+  const hoverImg = await loadImg(hoverBg);
+  const downImg = await loadImg(downBg);
+
   // Load mapping hit test image on offscreen canvas
   let mapCanvas = null;
   let mapCtx = null;
@@ -1045,6 +1066,14 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     if (height) bgDiv.style.height = height + 'px';
   }
 
+  const w = mapWidth || (defaultImg ? defaultImg.width : 0) || parseInt(width) || 100;
+  const h = mapHeight || (defaultImg ? defaultImg.height : 0) || parseInt(height) || 20;
+
+  const renderCanvas = document.createElement('canvas');
+  renderCanvas.width = w;
+  renderCanvas.height = h;
+  const renderCtx = renderCanvas.getContext('2d');
+
   // Parse button elements inside button group
   const buttons = [];
   const buttonTags = ['buttonelement', 'playelement', 'pauseelement', 'stopelement', 'prevelement', 'nextelement'];
@@ -1068,6 +1097,67 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     });
   }
 
+  const parseHex = (hex) => {
+    if (!hex) return null;
+    hex = hex.replace('#', '').trim().toLowerCase();
+    if (hex.length === 3) {
+      return {
+        r: parseInt(hex[0] + hex[0], 16),
+        g: parseInt(hex[1] + hex[1], 16),
+        b: parseInt(hex[2] + hex[2], 16)
+      };
+    }
+    if (hex.length === 6) {
+      return {
+        r: parseInt(hex.substring(0, 2), 16),
+        g: parseInt(hex.substring(2, 4), 16),
+        b: parseInt(hex.substring(4, 6), 16)
+      };
+    }
+    return null;
+  };
+
+  // Helper to pre-render masked button states
+  const createMaskedCanvas = (srcImg, mappingColor) => {
+    if (!srcImg || !mapCtx) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(srcImg, 0, 0);
+
+    try {
+      const srcData = ctx.getImageData(0, 0, w, h);
+      const mapData = mapCtx.getImageData(0, 0, w, h).data;
+      const data = srcData.data;
+      const targetColor = parseHex(mappingColor);
+
+      if (targetColor) {
+        for (let i = 0; i < data.length; i += 4) {
+          const mx = mapData[i];
+          const mg = mapData[i + 1];
+          const mb = mapData[i + 2];
+          const ma = mapData[i + 3];
+
+          const matches = ma > 0 && Math.abs(mx - targetColor.r) < 10 && Math.abs(mg - targetColor.g) < 10 && Math.abs(mb - targetColor.b) < 10;
+          if (!matches) {
+            data[i + 3] = 0; // Transparent
+          }
+        }
+        ctx.putImageData(srcData, 0, 0);
+      }
+    } catch (e) {
+      console.error('Failed to mask button group state:', e);
+    }
+    return canvas;
+  };
+
+  // Pre-generate masked state layers for each button
+  buttons.forEach(btn => {
+    btn.hoverMask = createMaskedCanvas(hoverImg, btn.mappingColor);
+    btn.downMask = createMaskedCanvas(downImg, btn.mappingColor);
+  });
+
   // Hit-Test logic
   let activeBtn = null;
   let isMouseDown = false;
@@ -1082,7 +1172,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     const b = pixel[2];
     const a = pixel[3];
     
-    if (a === 0) return null; // fully transparent pixel on map is ignore
+    if (a === 0) return null; // fully transparent pixel on map is ignored
 
     // Convert pixel to hex format #rrggbb
     const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
@@ -1090,6 +1180,36 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     // Find matching button mappingColor
     return buttons.find(btn => btn.mappingColor === hex);
   };
+
+  const updateCompositeUI = () => {
+    if (!renderCtx) return;
+    renderCtx.clearRect(0, 0, w, h);
+
+    if (defaultImg) {
+      renderCtx.drawImage(defaultImg, 0, 0);
+    }
+
+    if (activeBtn) {
+      if (isMouseDown) {
+        if (activeBtn.downMask) {
+          renderCtx.drawImage(activeBtn.downMask, 0, 0);
+        } else if (downImg) {
+          renderCtx.drawImage(downImg, 0, 0);
+        }
+      } else {
+        if (activeBtn.hoverMask) {
+          renderCtx.drawImage(activeBtn.hoverMask, 0, 0);
+        } else if (hoverImg) {
+          renderCtx.drawImage(hoverImg, 0, 0);
+        }
+      }
+    }
+
+    bgDiv.style.backgroundImage = `url("${renderCanvas.toDataURL()}")`;
+  };
+
+  // Render initial static composite background
+  updateCompositeUI();
 
   bgDiv.addEventListener('mousemove', (e) => {
     const rect = bgDiv.getBoundingClientRect();
@@ -1103,14 +1223,14 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
         activeBtn = btn;
         bgDiv.style.cursor = 'pointer';
         bgDiv.title = btn.toolTip || '';
-        if (hoverBg) bgDiv.style.backgroundImage = `url("${hoverBg}")`;
+        updateCompositeUI();
       }
     } else {
       if (activeBtn !== null) {
         activeBtn = null;
         bgDiv.style.cursor = 'default';
         bgDiv.title = '';
-        bgDiv.style.backgroundImage = `url("${defaultBg}")`;
+        updateCompositeUI();
       }
     }
   });
@@ -1118,7 +1238,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   bgDiv.addEventListener('mousedown', (e) => {
     if (activeBtn) {
       isMouseDown = true;
-      if (downBg) bgDiv.style.backgroundImage = `url("${downBg}")`;
+      updateCompositeUI();
     }
   });
 
@@ -1126,14 +1246,14 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     if (isMouseDown && activeBtn) {
       triggerButtonAction(activeBtn, contextViewWrapper);
       isMouseDown = false;
-      if (hoverBg) bgDiv.style.backgroundImage = `url("${hoverBg}")`;
+      updateCompositeUI();
     }
   });
 
   bgDiv.addEventListener('mouseleave', () => {
     activeBtn = null;
     isMouseDown = false;
-    bgDiv.style.backgroundImage = `url("${defaultBg}")`;
+    updateCompositeUI();
   });
 
   return bgDiv;
