@@ -34,3 +34,6 @@ npm start
 ## Skins
 * Place skins in the `skins/` directory.
 * Supported formats: `.wmz` / ZIP archives containing skin configuration files.
+
+## License
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later). See the LICENSE file for details.

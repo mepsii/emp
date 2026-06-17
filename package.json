@@ -14,7 +14,7 @@
     "electron"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "devDependencies": {
     "electron": "^28.3.3"
   },
