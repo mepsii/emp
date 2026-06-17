@@ -906,7 +906,7 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
       window.isDraggingSlider = false;
       const onDragEndCode = xmlNode.getAttribute('onDragEnd') || xmlNode.getAttribute('ondragend') || xmlNode.getAttribute('onmouseup');
       if (onDragEndCode) {
-        executeScriptWithContext(onDragEndCode.replace(/value/g, String(wrapper.value)), contextViewWrapper);
+        executeScriptWithContext(onDragEndCode.replace(/value/gi, String(wrapper.value)), contextViewWrapper);
       }
     }
   });

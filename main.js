@@ -43,11 +43,52 @@ function handleSkinProtocol() {
   protocol.handle('wmp-media', async (request) => {
     try {
       const urlPath = decodeURIComponent(request.url.replace('wmp-media://', ''));
-      if (fs.existsSync(urlPath) && fs.statSync(urlPath).isFile()) {
-        const fileUrl = 'file://' + urlPath.replace(/\\/g, '/');
-        return net.fetch(fileUrl);
+      if (!fs.existsSync(urlPath) || !fs.statSync(urlPath).isFile()) {
+        return new Response('Media file not found', { status: 404 });
       }
-      return new Response('Media file not found', { status: 404 });
+
+      const stat = fs.statSync(urlPath);
+      const fileSize = stat.size;
+      const rangeHeader = request.headers.get('range');
+
+      // Simple MIME type resolver
+      const ext = path.extname(urlPath).toLowerCase();
+      let contentType = 'audio/mpeg';
+      if (ext === '.wav') contentType = 'audio/wav';
+      else if (ext === '.ogg') contentType = 'audio/ogg';
+      else if (ext === '.aac') contentType = 'audio/aac';
+      else if (ext === '.m4a') contentType = 'audio/mp4';
+      else if (ext === '.flac') contentType = 'audio/flac';
+
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+
+        const fileStream = fs.createReadStream(urlPath, { start, end });
+        
+        return new Response(fileStream, {
+          status: 206,
+          statusText: 'Partial Content',
+          headers: {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize.toString(),
+            'Content-Type': contentType,
+          }
+        });
+      } else {
+        const fileStream = fs.createReadStream(urlPath);
+        return new Response(fileStream, {
+          status: 200,
+          headers: {
+            'Accept-Ranges': 'bytes',
+            'Content-Length': fileSize.toString(),
+            'Content-Type': contentType,
+          }
+        });
+      }
     } catch (e) {
       console.error('Media protocol handler error:', e);
       return new Response('Error loading media resource', { status: 500 });
