@@ -227,10 +227,13 @@ async function loadSkin(skinPathOrZip) {
     const playerNode = findChildNode(viewNode, 'player');
     if (playerNode) {
       for (let attr of playerNode.attributes) {
-        if (attr.name.toLowerCase().endsWith('_onchange')) {
-          const eventName = attr.name.substring(0, attr.name.indexOf('_'));
+          const eventName = attr.name;
           window.player.addEventListener(eventName, attr.value);
-        }
+          // Also register under the short name just in case
+          if (attr.name.includes('_')) {
+            const shortName = attr.name.substring(0, attr.name.indexOf('_'));
+            window.player.addEventListener(shortName, attr.value);
+          }
       }
     }
   }

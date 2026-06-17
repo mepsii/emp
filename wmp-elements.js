@@ -39,6 +39,10 @@ class WMPElementWrapper {
   get value() {
     if (this.el) {
       if (this.el.tagName === 'SPAN' || this.el.classList.contains('wmp-text')) {
+        if (this.el.classList.contains('wmp-text-scrolling')) {
+          const segment1 = this.el.querySelector('.wmp-text-seg1');
+          return segment1 ? segment1.textContent : this._value;
+        }
         return this.el.textContent;
       }
     }
@@ -49,7 +53,18 @@ class WMPElementWrapper {
     this._value = val;
     if (this.el) {
       if (this.el.tagName === 'SPAN' || this.el.classList.contains('wmp-text')) {
-        this.el.textContent = val;
+        if (this.el.classList.contains('wmp-text-scrolling')) {
+          const segment1 = this.el.querySelector('.wmp-text-seg1');
+          const segment2 = this.el.querySelector('.wmp-text-seg2');
+          if (segment1 && segment2) {
+            segment1.textContent = val;
+            segment2.textContent = val;
+          } else {
+            this.el.textContent = val;
+          }
+        } else {
+          this.el.textContent = val;
+        }
       }
     }
     if (this.updateSliderUI) {
@@ -100,7 +115,16 @@ class WMPElementWrapper {
     }
   }
 
-  get textWidth() { return this.el ? (this.el.scrollWidth || 0) : 0; }
+  get textWidth() {
+    if (this.el) {
+      if (this.el.classList.contains('wmp-text-scrolling')) {
+        const seg1 = this.el.querySelector('.wmp-text-seg1');
+        return seg1 ? (seg1.offsetWidth || seg1.scrollWidth || 0) : (this.el.scrollWidth || 0);
+      }
+      return this.el.scrollWidth || 0;
+    }
+    return 0;
+  }
   get textwidth() { return this.textWidth; }
 
   // Tooltip bindings
@@ -909,32 +933,69 @@ function createText(xmlNode) {
   
   // Custom styles
   span.style.color = xmlNode.getAttribute('foregroundColor') || xmlNode.getAttribute('foregroundcolor') || '#ffffff';
-  span.style.fontSize = (xmlNode.getAttribute('fontSize') || xmlNode.getAttribute('fontsize') || '10') + 'px';
+  // Use pt (points) for a more prominent font size matching legacy players
+  const fsAttr = xmlNode.getAttribute('fontSize') || xmlNode.getAttribute('fontsize') || '10';
+  span.style.fontSize = fsAttr + 'pt';
   span.style.textAlign = (xmlNode.getAttribute('justification') || xmlNode.getAttribute('justification') || 'left').toLowerCase();
   
-  span.textContent = xmlNode.getAttribute('value') || '';
-
-  // Scrolling behavior if enabled
+  const initialValue = xmlNode.getAttribute('value') || '';
   const scrolling = xmlNode.getAttribute('scrolling') === 'true';
+
   if (scrolling) {
+    span.classList.add('wmp-text-scrolling');
     span.style.overflow = 'hidden';
     span.style.whiteSpace = 'nowrap';
-    
-    // Add scrolling behavior
+    span.style.display = 'inline-block';
+
+    // Create wrapper div
+    const scrollerWrapper = document.createElement('div');
+    scrollerWrapper.style.display = 'inline-block';
+    scrollerWrapper.style.whiteSpace = 'nowrap';
+    scrollerWrapper.style.width = 'max-content';
+
+    // Create segment 1
+    const seg1 = document.createElement('span');
+    seg1.className = 'wmp-text-seg1';
+    seg1.textContent = initialValue;
+
+    // Create spacer
+    const spacer = document.createElement('span');
+    spacer.innerHTML = ' &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; '; // 8 non-breaking spaces for a clean gap
+
+    // Create segment 2
+    const seg2 = document.createElement('span');
+    seg2.className = 'wmp-text-seg2';
+    seg2.textContent = initialValue;
+
+    scrollerWrapper.appendChild(seg1);
+    scrollerWrapper.appendChild(spacer);
+    scrollerWrapper.appendChild(seg2);
+    span.appendChild(scrollerWrapper);
+
+    // Scroll animation loop
     let scrollPos = 0;
-    setInterval(() => {
-      const scrollWidth = span.scrollWidth;
-      const containerWidth = span.clientWidth;
-      if (scrollWidth > containerWidth) {
-        scrollPos += 1;
-        if (scrollPos > scrollWidth) {
-          scrollPos = -containerWidth;
+    const scrollInterval = () => {
+      // Calculate single width = width of seg1 + spacer width
+      const seg1Width = seg1.offsetWidth;
+      const spacerWidth = spacer.offsetWidth;
+      const loopWidth = seg1Width + spacerWidth;
+
+      if (seg1Width > span.clientWidth) {
+        scrollPos += 0.35; // slow, smooth fractional increments
+        if (scrollPos >= loopWidth) {
+          scrollPos = 0; // seamless wrap reset
         }
-        span.scrollLeft = scrollPos;
+        span.scrollLeft = Math.floor(scrollPos);
       } else {
         span.scrollLeft = 0;
+        scrollPos = 0;
       }
-    }, parseInt(xmlNode.getAttribute('scrollingDelay') || '40'));
+    };
+
+    // Run at 60fps (approx 16ms) for perfectly smooth, hardware-like constant scrolling
+    setInterval(scrollInterval, 16);
+  } else {
+    span.textContent = initialValue;
   }
 
   return span;
