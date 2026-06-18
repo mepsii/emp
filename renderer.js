@@ -321,11 +321,11 @@ async function renderView(viewNode) {
     bgDiv.style.backgroundImage = `url("${processedBg}")`;
     bgDiv.style.backgroundRepeat = 'no-repeat';
     bgDiv.style.backgroundPosition = 'top left';
-    bgDiv.style.zIndex = '0';
+    bgDiv.style.zIndex = '-1';
     bgDiv.style.pointerEvents = 'none';
     viewDiv.appendChild(bgDiv);
 
-    // Store mask image on dataset so children (like visualizers) can mask themselves dynamically
+    // Store mask image on dataset so children (like visualizers) can mask themselves
     viewDiv.dataset.maskImage = maskBg;
   } else {
     viewDiv.style.backgroundColor = viewNode.getAttribute('backgroundColor') || viewNode.getAttribute('backgroundcolor') || 'transparent';
@@ -434,11 +434,11 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
       bgDiv.style.backgroundImage = `url("${processedBg}")`;
       bgDiv.style.backgroundRepeat = 'no-repeat';
       bgDiv.style.backgroundPosition = 'top left';
-      bgDiv.style.zIndex = '0';
+      bgDiv.style.zIndex = '-1';
       bgDiv.style.pointerEvents = 'none';
       el.appendChild(bgDiv);
 
-      // Store mask image on dataset so children (like visualizers) can mask themselves dynamically
+      // Store mask image on dataset so children (like visualizers) can mask themselves
       const maskBg = await getProcessedSkinMaskURL(bgImage, transColor, clipColor);
       el.dataset.maskImage = maskBg;
     }
@@ -509,13 +509,15 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
       }
     }
 
-    // Apply zIndex stacking to allow visualizer elements to render behind background textures
+    // Apply zIndex stacking — respect XML attribute, otherwise use sensible defaults.
+    // bg divs sit at z:-1, so effects default z:0 renders above them within
+    // their own container, while negative-z subviews stay behind the parent bg.
     const zIndex = xmlNode.getAttribute('zIndex') || xmlNode.getAttribute('zindex');
     let defaultZIndex = '1';
     if (tagName === 'effects') {
-      defaultZIndex = '-1';
+      defaultZIndex = '0'; // above bg div (z:-1) within its container
     } else if (tagName === 'subview') {
-      defaultZIndex = '2'; // Subviews default to a higher stacking index than standalone controls
+      defaultZIndex = '2'; // Subviews default above standalone controls
     }
     
     let zIndexVal = zIndex || defaultZIndex;
