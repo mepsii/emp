@@ -37,28 +37,29 @@ function createVisualizer(xmlNode, parentEl) {
   container.style.width = width + 'px';
   container.style.height = height + 'px';
   container.style.overflow = 'hidden';
-  container.style.backgroundColor = '#000'; // Black background by default like original media player
+  const zIndexAttr = xmlNode.getAttribute('zIndex') || xmlNode.getAttribute('zindex');
+  const zIndexVal = zIndexAttr ? parseInt(zIndexAttr) : 1;
 
-  // Find the view-level ancestor mask to clip visualizer to the window shape.
-  // We skip intermediate subview masks (e.g. vid_bkgd.bmp with clippingColor)
-  // that would incorrectly clip the visualizer content. Only the top-level
-  // view mask (for window shaping) should be applied.
-  if (parentEl) {
+  if (zIndexVal < 0) {
+    container.style.backgroundColor = '#000';
+  } else {
+    container.style.backgroundColor = 'transparent';
+  }
+
+  // If visualizer is on top of background (zIndex >= 0), find nearest ancestor mask to clip visualizer.
+  if (zIndexVal >= 0 && parentEl) {
     let ancestor = parentEl;
     let maskImage = null;
     let accumLeft = parseInt(left) || 0;
     let accumTop = parseInt(top) || 0;
 
     while (ancestor) {
-      accumLeft += ancestor.offsetLeft || 0;
-      accumTop += ancestor.offsetTop || 0;
-      // Only use a mask from the view-level element (wmp-view), not from
-      // intermediate subviews whose masks define content areas rather than
-      // the overall window shape.
-      if (ancestor.classList && ancestor.classList.contains('wmp-view') && ancestor.dataset && ancestor.dataset.maskImage) {
+      if (ancestor.dataset && ancestor.dataset.maskImage) {
         maskImage = ancestor.dataset.maskImage;
         break;
       }
+      accumLeft += ancestor.offsetLeft || 0;
+      accumTop += ancestor.offsetTop || 0;
       ancestor = ancestor.parentElement;
     }
 
@@ -107,9 +108,16 @@ function createVisualizer(xmlNode, parentEl) {
       return;
     }
     
-    // Clear and fill with black to guarantee a solid black background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear the canvas appropriately depending on visualizer layering zIndex
+    const zIndexAttr = xmlNode.getAttribute('zIndex') || xmlNode.getAttribute('zindex');
+    const zIndexVal = zIndexAttr ? parseInt(zIndexAttr) : 1;
+
+    if (zIndexVal < 0) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
     
     const isPlaying = window.player.playState === wmppsPlaying;
     const currentPreset = window.mediacenter ? (window.mediacenter.effectPreset % 3) : 0;

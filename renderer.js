@@ -321,7 +321,7 @@ async function renderView(viewNode) {
     bgDiv.style.backgroundImage = `url("${processedBg}")`;
     bgDiv.style.backgroundRepeat = 'no-repeat';
     bgDiv.style.backgroundPosition = 'top left';
-    bgDiv.style.zIndex = '-1';
+    bgDiv.style.zIndex = '0';
     bgDiv.style.pointerEvents = 'none';
     viewDiv.appendChild(bgDiv);
 
@@ -434,7 +434,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
       bgDiv.style.backgroundImage = `url("${processedBg}")`;
       bgDiv.style.backgroundRepeat = 'no-repeat';
       bgDiv.style.backgroundPosition = 'top left';
-      bgDiv.style.zIndex = '-1';
+      bgDiv.style.zIndex = '0';
       bgDiv.style.pointerEvents = 'none';
       el.appendChild(bgDiv);
 
@@ -515,7 +515,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     const zIndex = xmlNode.getAttribute('zIndex') || xmlNode.getAttribute('zindex');
     let defaultZIndex = '1';
     if (tagName === 'effects') {
-      defaultZIndex = '0'; // above bg div (z:-1) within its container
+      defaultZIndex = '1'; // above bg div (z:0) within its container
     } else if (tagName === 'subview') {
       defaultZIndex = '2'; // Subviews default above standalone controls
     }

@@ -94,7 +94,7 @@ function loadAndProcessImage(src, transparencyColor, clippingColor, isMask = fal
             const matches = matchColor(r, g, b, tColor) || matchColor(r, g, b, cColor);
             
             if (isMask) {
-              data[i + 3] = matches ? 255 : 0;
+              data[i + 3] = matches ? 0 : 255;
             } else if (matches) {
               data[i + 3] = 0; // Transparent alpha channel
             }
@@ -121,12 +121,11 @@ function updateElementMaskPosition(el) {
   let accumTop = parseInt(el.style.top) || 0;
   
   while (ancestor) {
-    accumLeft += ancestor.offsetLeft || 0;
-    accumTop += ancestor.offsetTop || 0;
-    // Only use view-level masks, not intermediate subview masks
-    if (ancestor.classList && ancestor.classList.contains('wmp-view') && ancestor.dataset && ancestor.dataset.maskImage) {
+    if (ancestor.dataset && ancestor.dataset.maskImage) {
       break;
     }
+    accumLeft += ancestor.offsetLeft || 0;
+    accumTop += ancestor.offsetTop || 0;
     ancestor = ancestor.parentElement;
   }
   
