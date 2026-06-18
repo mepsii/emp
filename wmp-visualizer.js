@@ -39,7 +39,10 @@ function createVisualizer(xmlNode, parentEl) {
   container.style.overflow = 'hidden';
   container.style.backgroundColor = '#000'; // Black background by default like original media player
 
-  // Find the nearest ancestor with a mask image to clip visualizer to the window shape
+  // Find the view-level ancestor mask to clip visualizer to the window shape.
+  // We skip intermediate subview masks (e.g. vid_bkgd.bmp with clippingColor)
+  // that would incorrectly clip the visualizer content. Only the top-level
+  // view mask (for window shaping) should be applied.
   if (parentEl) {
     let ancestor = parentEl;
     let maskImage = null;
@@ -47,12 +50,15 @@ function createVisualizer(xmlNode, parentEl) {
     let accumTop = parseInt(top) || 0;
 
     while (ancestor) {
-      if (ancestor.dataset && ancestor.dataset.maskImage) {
+      accumLeft += ancestor.offsetLeft || 0;
+      accumTop += ancestor.offsetTop || 0;
+      // Only use a mask from the view-level element (wmp-view), not from
+      // intermediate subviews whose masks define content areas rather than
+      // the overall window shape.
+      if (ancestor.classList && ancestor.classList.contains('wmp-view') && ancestor.dataset && ancestor.dataset.maskImage) {
         maskImage = ancestor.dataset.maskImage;
         break;
       }
-      accumLeft += ancestor.offsetLeft || 0;
-      accumTop += ancestor.offsetTop || 0;
       ancestor = ancestor.parentElement;
     }
 

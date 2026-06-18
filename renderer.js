@@ -321,7 +321,7 @@ async function renderView(viewNode) {
     bgDiv.style.backgroundImage = `url("${processedBg}")`;
     bgDiv.style.backgroundRepeat = 'no-repeat';
     bgDiv.style.backgroundPosition = 'top left';
-    bgDiv.style.zIndex = '-999';
+    bgDiv.style.zIndex = '0';
     bgDiv.style.pointerEvents = 'none';
     viewDiv.appendChild(bgDiv);
 
@@ -434,7 +434,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
       bgDiv.style.backgroundImage = `url("${processedBg}")`;
       bgDiv.style.backgroundRepeat = 'no-repeat';
       bgDiv.style.backgroundPosition = 'top left';
-      bgDiv.style.zIndex = '-999';
+      bgDiv.style.zIndex = '0';
       bgDiv.style.pointerEvents = 'none';
       el.appendChild(bgDiv);
 
@@ -519,12 +519,6 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     }
     
     let zIndexVal = zIndex || defaultZIndex;
-    if (tagName === 'effects') {
-      const parsedZ = parseInt(zIndexVal) || -1;
-      if (parsedZ < 0) {
-        zIndexVal = (parsedZ - 1000).toString();
-      }
-    }
     el.style.zIndex = zIndexVal;
 
     // Set up data binding for attributes

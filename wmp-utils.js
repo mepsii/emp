@@ -121,11 +121,12 @@ function updateElementMaskPosition(el) {
   let accumTop = parseInt(el.style.top) || 0;
   
   while (ancestor) {
-    if (ancestor.dataset && ancestor.dataset.maskImage) {
-      break;
-    }
     accumLeft += ancestor.offsetLeft || 0;
     accumTop += ancestor.offsetTop || 0;
+    // Only use view-level masks, not intermediate subview masks
+    if (ancestor.classList && ancestor.classList.contains('wmp-view') && ancestor.dataset && ancestor.dataset.maskImage) {
+      break;
+    }
     ancestor = ancestor.parentElement;
   }
   
