@@ -1099,23 +1099,35 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
 
     if (wrapper.direction === 'vertical') {
       const slideHeight = sHeight - 2 * borderSize;
-      const topPos = clampedPct * (slideHeight - thumbH);
+      const centerPos = (sHeight - borderSize) - clampedPct * slideHeight;
+      const topPos = centerPos - thumbH / 2;
       if (thumbEl) {
-        thumbEl.style.top = (slideHeight - thumbH - topPos + borderSize) + 'px';
+        thumbEl.style.top = topPos + 'px';
         thumbEl.style.left = ((sWidth - thumbW) / 2) + 'px';
       }
       if (fillEl) {
-        fillEl.style.height = (clampedPct * 100) + '%';
+        fillEl.style.bottom = borderSize + 'px';
+        fillEl.style.height = (clampedPct * slideHeight) + 'px';
+        fillEl.style.left = '0px';
+        fillEl.style.width = '100%';
+        fillEl.style.backgroundPosition = 'left 0px bottom -' + borderSize + 'px';
+        fillEl.style.backgroundSize = sWidth + 'px ' + sHeight + 'px';
       }
     } else {
       const slideWidth = sWidth - 2 * borderSize;
-      const leftPos = clampedPct * (slideWidth - thumbW);
+      const centerPos = borderSize + clampedPct * slideWidth;
+      const leftPos = centerPos - thumbW / 2;
       if (thumbEl) {
-        thumbEl.style.left = (leftPos + borderSize) + 'px';
+        thumbEl.style.left = leftPos + 'px';
         thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
       }
       if (fillEl) {
-        fillEl.style.width = (clampedPct * 100) + '%';
+        fillEl.style.left = borderSize + 'px';
+        fillEl.style.width = (clampedPct * slideWidth) + 'px';
+        fillEl.style.top = '0px';
+        fillEl.style.height = '100%';
+        fillEl.style.backgroundPosition = '-' + borderSize + 'px 0px';
+        fillEl.style.backgroundSize = sWidth + 'px ' + sHeight + 'px';
       }
     }
   };
