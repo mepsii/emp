@@ -319,6 +319,11 @@ async function renderView(viewNode) {
   viewDiv.className = 'wmp-view';
   viewDiv.style.width = width + 'px';
   viewDiv.style.height = height + 'px';
+
+  const bgColor = viewNode.getAttribute('backgroundColor') || viewNode.getAttribute('backgroundcolor');
+  if (bgColor && bgColor.toLowerCase() !== 'none') {
+    viewDiv.style.backgroundColor = bgColor;
+  }
   
   // Establish stacking context
   const zIndex = viewNode.getAttribute('zIndex') || viewNode.getAttribute('zindex') || '1';
@@ -401,6 +406,11 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     el.className = 'wmp-subview';
     el.style.left = leftVal + 'px';
     el.style.top = topVal + 'px';
+
+    const bgColor = xmlNode.getAttribute('backgroundColor') || xmlNode.getAttribute('backgroundcolor');
+    if (bgColor && bgColor.toLowerCase() !== 'none') {
+      el.style.backgroundColor = bgColor;
+    }
 
     const transColor = xmlNode.getAttribute('transparencyColor') || xmlNode.getAttribute('transparencycolor') || parentTransColor;
     const clipColor = xmlNode.getAttribute('clippingColor') || xmlNode.getAttribute('clippingcolor') || parentClipColor;
