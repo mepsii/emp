@@ -301,8 +301,8 @@ class WMPElementWrapper {
         this.el.classList.add('disabled');
         this.el.style.pointerEvents = 'none';
       }
-      if (this.updateButtonUI) this.updateButtonUI();
     }
+    if (this.updateButtonUI) this.updateButtonUI();
   }
 
   get tabStop() {
@@ -466,6 +466,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   const bgImage = xmlNode.getAttribute('image') || xmlNode.getAttribute('backgroundImage') || xmlNode.getAttribute('backgroundimage');
   const hoverImage = xmlNode.getAttribute('hoverImage') || xmlNode.getAttribute('hoverimage');
   const downImage = xmlNode.getAttribute('downImage') || xmlNode.getAttribute('downimage');
+  const disabledImage = xmlNode.getAttribute('disabledImage') || xmlNode.getAttribute('disabledimage');
   const mappingImage = xmlNode.getAttribute('mappingImage') || xmlNode.getAttribute('mappingimage');
 
   const transColor = xmlNode.getAttribute('transparencyColor') || xmlNode.getAttribute('transparencycolor') || parentTransColor;
@@ -480,6 +481,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   let defaultBg = '';
   let hoverBg = '';
   let downBg = '';
+  let disabledBg = '';
   
   if (bgImage) {
     defaultBg = await getProcessedSkinImageURL(bgImage, transColor, clipColor);
@@ -487,6 +489,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   }
   if (hoverImage) hoverBg = await getProcessedSkinImageURL(hoverImage, transColor, clipColor);
   if (downImage) downBg = await getProcessedSkinImageURL(downImage, transColor, clipColor);
+  if (disabledImage) disabledBg = await getProcessedSkinImageURL(disabledImage, transColor, clipColor);
 
   const loadImg = (src) => {
     return new Promise((resolve) => {
@@ -501,6 +504,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   const defaultImg = await loadImg(defaultBg);
   const hoverImg = await loadImg(hoverBg);
   const downImg = await loadImg(downBg);
+  const disabledImg = await loadImg(disabledBg);
 
   // Load mapping hit test image on offscreen canvas
   let mapCanvas = null;
@@ -547,33 +551,6 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   // Parse button elements inside button group
   const buttons = [];
   const buttonTags = ['buttonelement', 'playelement', 'pauseelement', 'stopelement', 'prevelement', 'nextelement'];
-  for (let tag of buttonTags) {
-    const elNodes = findChildNodes(xmlNode, tag);
-    elNodes.forEach(node => {
-      const btnId = node.getAttribute('id');
-      let toolTip = node.getAttribute('upToolTip') || node.getAttribute('uptooltip') || node.getAttribute('toolTip') || node.getAttribute('tooltip');
-      if (!toolTip) {
-        if (tag === 'playelement') toolTip = 'Play';
-        else if (tag === 'pauseelement') toolTip = 'Pause';
-        else if (tag === 'stopelement') toolTip = 'Stop';
-        else if (tag === 'prevelement') toolTip = 'Previous';
-        else if (tag === 'nextelement') toolTip = 'Next';
-      }
-      const btnObj = {
-        node,
-        mappingColor: (node.getAttribute('mappingColor') || node.getAttribute('mappingcolor') || '').toLowerCase(),
-        onClick: node.getAttribute('onClick') || node.getAttribute('onclick'),
-        toolTip,
-        tag
-      };
-      buttons.push(btnObj);
-
-      // Expose the button's ID as a global WMPElementWrapper (with a null DOM element)
-      if (btnId) {
-        window[btnId] = new WMPElementWrapper(null, node);
-      }
-    });
-  }
 
   const parseHex = (hex) => {
     if (!hex) return null;
@@ -630,10 +607,104 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     return canvas;
   };
 
+  const updateCompositeUI = () => {
+    if (!renderCtx) return;
+    renderCtx.clearRect(0, 0, w, h);
+
+    if (defaultImg) {
+      renderCtx.drawImage(defaultImg, 0, 0);
+    }
+
+    // Overlay disabled masks for any disabled buttons
+    buttons.forEach(btn => {
+      if (btn.wrapper && !btn.wrapper.enabled) {
+        if (btn.disabledMask) {
+          renderCtx.drawImage(btn.disabledMask, 0, 0);
+        }
+      }
+    });
+
+    if (activeBtn && activeBtn.wrapper && activeBtn.wrapper.enabled) {
+      if (isMouseDown) {
+        if (activeBtn.downMask) {
+          renderCtx.drawImage(activeBtn.downMask, 0, 0);
+        } else if (downImg) {
+          renderCtx.drawImage(downImg, 0, 0);
+        }
+      } else {
+        if (activeBtn.hoverMask) {
+          renderCtx.drawImage(activeBtn.hoverMask, 0, 0);
+        } else if (hoverImg) {
+          renderCtx.drawImage(hoverImg, 0, 0);
+        }
+      }
+    }
+
+    bgDiv.style.backgroundImage = `url("${renderCanvas.toDataURL()}")`;
+  };
+
+  for (let tag of buttonTags) {
+    const elNodes = findChildNodes(xmlNode, tag);
+    elNodes.forEach(node => {
+      const btnId = node.getAttribute('id');
+      let toolTip = node.getAttribute('upToolTip') || node.getAttribute('uptooltip') || node.getAttribute('toolTip') || node.getAttribute('tooltip');
+      if (!toolTip) {
+        if (tag === 'playelement') toolTip = 'Play';
+        else if (tag === 'pauseelement') toolTip = 'Pause';
+        else if (tag === 'stopelement') toolTip = 'Stop';
+        else if (tag === 'prevelement') toolTip = 'Previous';
+        else if (tag === 'nextelement') toolTip = 'Next';
+      }
+
+      const wrapper = new WMPElementWrapper(null, node);
+      wrapper.updateButtonUI = () => {
+        updateCompositeUI();
+      };
+
+      const btnObj = {
+        node,
+        mappingColor: (node.getAttribute('mappingColor') || node.getAttribute('mappingcolor') || '').toLowerCase(),
+        onClick: node.getAttribute('onClick') || node.getAttribute('onclick'),
+        toolTip,
+        tag,
+        wrapper
+      };
+      buttons.push(btnObj);
+
+      // Expose the button's ID as a global WMPElementWrapper
+      if (btnId) {
+        window[btnId] = wrapper;
+      }
+
+      // Automatically register availability bindings for standard buttons in the group
+      let autoProp = null;
+      if (tag === 'playelement') autoProp = 'player.controls.play';
+      else if (tag === 'pauseelement') autoProp = 'player.controls.pause';
+      else if (tag === 'stopelement') autoProp = 'player.controls.stop';
+      else if (tag === 'prevelement') autoProp = 'player.controls.previous';
+      else if (tag === 'nextelement') autoProp = 'player.controls.next';
+
+      if (autoProp) {
+        activeBindings.push({
+          wrapper,
+          targetProperty: 'enabled',
+          propPath: autoProp,
+          isWmpEnabled: true,
+          contextView: contextViewWrapper,
+          lastValue: undefined,
+          updateFn: (val) => {
+            wrapper.enabled = val;
+          }
+        });
+      }
+    });
+  }
+
   // Pre-generate masked state layers for each button
   buttons.forEach(btn => {
     btn.hoverMask = createMaskedCanvas(hoverImg, btn.mappingColor);
     btn.downMask = createMaskedCanvas(downImg, btn.mappingColor);
+    btn.disabledMask = createMaskedCanvas(disabledImg, btn.mappingColor);
   });
 
   // Hit-Test logic
@@ -659,33 +730,6 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     return buttons.find(btn => btn.mappingColor === hex);
   };
 
-  const updateCompositeUI = () => {
-    if (!renderCtx) return;
-    renderCtx.clearRect(0, 0, w, h);
-
-    if (defaultImg) {
-      renderCtx.drawImage(defaultImg, 0, 0);
-    }
-
-    if (activeBtn) {
-      if (isMouseDown) {
-        if (activeBtn.downMask) {
-          renderCtx.drawImage(activeBtn.downMask, 0, 0);
-        } else if (downImg) {
-          renderCtx.drawImage(downImg, 0, 0);
-        }
-      } else {
-        if (activeBtn.hoverMask) {
-          renderCtx.drawImage(activeBtn.hoverMask, 0, 0);
-        } else if (hoverImg) {
-          renderCtx.drawImage(hoverImg, 0, 0);
-        }
-      }
-    }
-
-    bgDiv.style.backgroundImage = `url("${renderCanvas.toDataURL()}")`;
-  };
-
   // Render initial static composite background
   updateCompositeUI();
 
@@ -696,7 +740,7 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
     
     const btn = findButtonAtCoords(x, y);
     
-    if (btn) {
+    if (btn && btn.wrapper && btn.wrapper.enabled) {
       if (activeBtn !== btn) {
         activeBtn = btn;
         bgDiv.style.cursor = 'pointer';
@@ -714,14 +758,14 @@ async function createButtonGroup(xmlNode, parentTransColor, parentClipColor, con
   });
 
   bgDiv.addEventListener('mousedown', (e) => {
-    if (activeBtn) {
+    if (activeBtn && activeBtn.wrapper && activeBtn.wrapper.enabled) {
       isMouseDown = true;
       updateCompositeUI();
     }
   });
 
   bgDiv.addEventListener('mouseup', (e) => {
-    if (isMouseDown && activeBtn) {
+    if (isMouseDown && activeBtn && activeBtn.wrapper && activeBtn.wrapper.enabled) {
       triggerButtonAction(activeBtn, contextViewWrapper);
       isMouseDown = false;
       updateCompositeUI();

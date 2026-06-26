@@ -166,6 +166,23 @@ async function loadSkin(skinPathOrZip) {
     cancelAnimationFrame(animationFrameId);
   }
 
+  // Clean up skin-registered global variables to avoid pollution
+  if (window.skinRegisteredGlobals) {
+    window.skinRegisteredGlobals.forEach(id => {
+      try {
+        delete window[id];
+      } catch (e) {
+        window[id] = undefined;
+      }
+    });
+    window.skinRegisteredGlobals.length = 0;
+  }
+
+  // Reset player skin-specific event listeners
+  if (window.player && window.player.clearSkinListeners) {
+    window.player.clearSkinListeners();
+  }
+
   // Load the skin content
   const result = await window.electronAPI.loadSkin(skinPathOrZip);
   if (!result.success) {

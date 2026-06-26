@@ -24,6 +24,14 @@ function initAudioVisualizer() {
 
 // Draw audio visualizer animation loop
 function createVisualizer(xmlNode, parentEl) {
+  // Ensure visualizer is initialized if audio is already playing
+  if (window.player && window.player.playState === wmppsPlaying) {
+    initAudioVisualizer();
+    if (window.audioContext && window.audioContext.state === 'suspended') {
+      window.audioContext.resume();
+    }
+  }
+
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width') || '60';

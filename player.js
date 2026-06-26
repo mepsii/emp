@@ -242,7 +242,7 @@ class WMPControls {
       return state === wmppsPlaying || state === wmppsPaused;
     }
     if (act === 'next' || act === 'previous') {
-      return true;
+      return false;
     }
     return false;
   }
