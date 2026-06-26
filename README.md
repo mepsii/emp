@@ -3,10 +3,10 @@
 An incredibly basic, vibecoded, media player in electron, its sole purpose is to make vintage M$ WMP-Legacy skins run in a modern cross platform enviroment. 
 
 ## Features
-* essentially complete support for goo skin. most others have not been tested yet
-* compared directly against wmp9 in a xp vm, to try and get it as accurate feeling as possible
-* some classic styled visualizers
-* nostalgia bait for desktop screenshots
+* essentially complete support for goo skin. headspace at about ~90%. most others either broken or have not been tested yet
+* compared directly against wmp9 in a xp vm, aswell as recordings of real hardware when possible, to try and get it as accurate feeling as possible
+* some classic styled visualizers, might potentially consider attempting adding support for wmp-l visualizers too sometime? no clue if thats practical/possible tho
+* perfect nostalgia bait for desktop screenshots
 
 ----
 
