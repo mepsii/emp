@@ -80,6 +80,7 @@ class WMPPlayer {
     this._playState = wmppsStopped;
     this._eventListeners = {};
     this.isSeeking = false;
+    this._isStopping = false;
     
     // Set up HTML5 Audio Event Listeners to drive state changes
     this.audio.addEventListener('loadstart', () => {
@@ -92,7 +93,12 @@ class WMPPlayer {
       this.setPlayState(wmppsPlaying);
     });
     this.audio.addEventListener('pause', () => {
-      this.setPlayState(wmppsPaused);
+      if (this._isStopping) {
+        this._isStopping = false;
+        this.setPlayState(wmppsStopped);
+      } else {
+        this.setPlayState(wmppsPaused);
+      }
     });
     this.audio.addEventListener('ended', () => {
       this.setPlayState(wmppsMediaEnded);
@@ -216,6 +222,7 @@ class WMPControls {
   }
 
   stop() {
+    this.player._isStopping = true;
     this.player.audio.pause();
     this.player.audio.currentTime = 0;
     this.player.setPlayState(wmppsStopped);
