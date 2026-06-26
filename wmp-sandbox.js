@@ -57,13 +57,30 @@ function updateBindingsLoop() {
       if (binding.wrapper.isDragging) continue;
       if (binding.propPath.includes('currentPosition') && window.player && window.player.isSeeking) continue;
     }
-    const val = resolveWmpProp(binding.propPath);
+    let val;
+    if (binding.isWmpEnabled) {
+      val = resolveWmpEnabled(binding.propPath);
+    } else {
+      val = resolveWmpProp(binding.propPath);
+    }
     if (val !== undefined && val !== binding.lastValue) {
       binding.lastValue = val;
       binding.updateFn(val);
     }
   }
   animationFrameId = requestAnimationFrame(updateBindingsLoop);
+}
+
+function resolveWmpEnabled(path) {
+  // Path is usually like "player.controls.pause" or "player.controls.play"
+  const parts = path.toLowerCase().split('.');
+  if (parts.includes('controls')) {
+    const action = parts[parts.length - 1]; // e.g. "pause" or "play"
+    if (window.player && window.player.controls) {
+      return window.player.controls.isAvailable(action);
+    }
+  }
+  return false;
 }
 
 function resolveWmpProp(path) {

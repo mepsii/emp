@@ -38,11 +38,39 @@ const wmppsReady = 10;
 const wmppsReconnecting = 11;
 
 // Expose constants to window
+window.osUndefined = osUndefined;
+window.osPlaylistChanging = osPlaylistChanging;
+window.osPlaylistLocating = osPlaylistLocating;
+window.osPlaylistConnecting = osPlaylistConnecting;
+window.osPlaylistLoading = osPlaylistLoading;
+window.osPlaylistOpening = osPlaylistOpening;
+window.osPlaylistOpenNoMedia = osPlaylistOpenNoMedia;
+window.osPlaylistChanged = osPlaylistChanged;
+window.osMediaChanging = osMediaChanging;
+window.osMediaLocating = osMediaLocating;
+window.osMediaConnecting = osMediaConnecting;
+window.osMediaLoading = osMediaLoading;
+window.osMediaOpening = osMediaOpening;
 window.osMediaOpen = osMediaOpen;
+window.osMediaContentChanged = osMediaContentChanged;
 window.osMediaClosed = osMediaClosed;
+window.osPlaylistOpenFailed = osPlaylistOpenFailed;
+window.osMediaOpenFailed = osMediaOpenFailed;
+window.osMediaWaiting = osMediaWaiting;
+window.osMediaReceiving = osMediaReceiving;
+
+window.wmppsUndefined = wmppsUndefined;
 window.wmppsStopped = wmppsStopped;
 window.wmppsPaused = wmppsPaused;
 window.wmppsPlaying = wmppsPlaying;
+window.wmppsScanForward = wmppsScanForward;
+window.wmppsScanReverse = wmppsScanReverse;
+window.wmppsBuffering = wmppsBuffering;
+window.wmppsWaiting = wmppsWaiting;
+window.wmppsMediaEnded = wmppsMediaEnded;
+window.wmppsTransitioning = wmppsTransitioning;
+window.wmppsReady = wmppsReady;
+window.wmppsReconnecting = wmppsReconnecting;
 
 class WMPPlayer {
   constructor(audioElement) {
@@ -167,6 +195,9 @@ class WMPPlayer {
     this.triggerEvent('PlayState_onchange');
     this.triggerEvent('playstate_onchange');
   }
+
+  get OpenState() { return this.openState; }
+  get PlayState() { return this.playState; }
 }
 
 class WMPControls {
@@ -200,7 +231,17 @@ class WMPControls {
 
   isAvailable(action) {
     const act = String(action).toLowerCase();
-    if (['play', 'pause', 'stop', 'next', 'previous'].includes(act)) {
+    const state = this.player.playState;
+    if (act === 'play') {
+      return state !== wmppsPlaying;
+    }
+    if (act === 'pause') {
+      return state === wmppsPlaying;
+    }
+    if (act === 'stop') {
+      return state === wmppsPlaying || state === wmppsPaused;
+    }
+    if (act === 'next' || act === 'previous') {
       return true;
     }
     return false;
@@ -270,6 +311,11 @@ class WMPSettings {
   set balance(val) {}
   get playCount() { return 1; }
   set playCount(val) {}
+
+  get Volume() { return this.volume; }
+  set Volume(val) { this.volume = val; }
+  get Mute() { return this.mute; }
+  set Mute(val) { this.mute = val; }
 }
 
 class WMPMedia {
@@ -284,6 +330,10 @@ class WMPMedia {
 
   get durationString() {
     return this.player.controls.formatTime(this.duration);
+  }
+
+  get durationstring() {
+    return this.durationString;
   }
 
   get name() {
@@ -334,6 +384,11 @@ class WMPView {
       window.electronAPI.resizeWindow(this._width, h);
     }
   }
+
+  get Width() { return this.width; }
+  set Width(val) { this.width = val; }
+  get Height() { return this.height; }
+  set Height(val) { this.height = val; }
 
   minimize() {
     window.electronAPI.minimizeWindow();

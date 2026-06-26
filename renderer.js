@@ -588,6 +588,27 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
             }
           });
         }
+      } else if (attrVal.startsWith('wmpenabled:')) {
+        const propPath = attrVal.substring(11);
+        let updateFn;
+        if (attrName === 'visible') {
+          updateFn = (val) => { wrapper.visible = val; };
+        } else if (attrName === 'enabled') {
+          updateFn = (val) => { wrapper.enabled = val; };
+        } else if (attrName === 'tabstop' || attrName === 'tabstop') {
+          updateFn = (val) => { wrapper.tabStop = val; };
+        } else {
+          updateFn = (val) => { wrapper[attrName] = val; };
+        }
+        activeBindings.push({
+          wrapper,
+          targetProperty: attrName,
+          propPath,
+          isWmpEnabled: true,
+          contextView: contextViewWrapper,
+          lastValue: undefined,
+          updateFn
+        });
       } else if (attrVal.startsWith('jscript:')) {
         // Dynamic evaluation bindings
         const expr = attrVal.substring(8);

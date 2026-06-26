@@ -14,6 +14,8 @@ class WMPElementWrapper {
     this._height = xmlNode ? (parseInt(xmlNode.getAttribute('height')) || 0) : 0;
     this._left = xmlNode ? (parseInt(xmlNode.getAttribute('left')) || 0) : 0;
     this._top = xmlNode ? (parseInt(xmlNode.getAttribute('top')) || 0) : 0;
+    this._enabled = xmlNode ? (xmlNode.getAttribute('enabled') !== 'false') : true;
+    this._tabStop = xmlNode ? (xmlNode.getAttribute('tabStop') !== 'false' && xmlNode.getAttribute('tabstop') !== 'false') : true;
     
     this._tooltip = xmlNode ? (
       xmlNode.getAttribute('upToolTip') || 
@@ -229,6 +231,92 @@ class WMPElementWrapper {
   }
   get tooltip() { return this.toolTip; }
   set tooltip(val) { this.toolTip = val; }
+
+  get upToolTip() { return this.toolTip; }
+  set upToolTip(val) { this.toolTip = val; }
+  get uptooltip() { return this.toolTip; }
+  set uptooltip(val) { this.toolTip = val; }
+
+  get image() { return this._image; }
+  set image(val) {
+    this._image = val;
+    if (this.el) {
+      getProcessedSkinImageURL(val, this.transColor, this.clipColor).then(url => {
+        this._defaultBg = url;
+        if (this.updateButtonUI) this.updateButtonUI();
+      });
+    }
+  }
+
+  get hoverImage() { return this._hoverImage; }
+  set hoverImage(val) {
+    this._hoverImage = val;
+    if (this.el) {
+      getProcessedSkinImageURL(val, this.transColor, this.clipColor).then(url => {
+        this._hoverBg = url;
+        if (this.updateButtonUI) this.updateButtonUI();
+      });
+    }
+  }
+  get hoverimage() { return this.hoverImage; }
+  set hoverimage(val) { this.hoverImage = val; }
+
+  get downImage() { return this._downImage; }
+  set downImage(val) {
+    this._downImage = val;
+    if (this.el) {
+      getProcessedSkinImageURL(val, this.transColor, this.clipColor).then(url => {
+        this._downBg = url;
+        if (this.updateButtonUI) this.updateButtonUI();
+      });
+    }
+  }
+  get downimage() { return this.downImage; }
+  set downimage(val) { this.downImage = val; }
+
+  get disabledImage() { return this._disabledImage; }
+  set disabledImage(val) {
+    this._disabledImage = val;
+    if (this.el) {
+      getProcessedSkinImageURL(val, this.transColor, this.clipColor).then(url => {
+        this._disabledBg = url;
+        if (this.updateButtonUI) this.updateButtonUI();
+      });
+    }
+  }
+  get disabledimage() { return this.disabledImage; }
+  set disabledimage(val) { this.disabledImage = val; }
+
+  get enabled() {
+    return this._enabled !== false;
+  }
+  set enabled(val) {
+    const isEnabled = (val === true || val === 'true' || val === 1 || val === '1');
+    this._enabled = isEnabled;
+    if (this.el) {
+      if (isEnabled) {
+        this.el.classList.remove('disabled');
+        this.el.style.pointerEvents = '';
+      } else {
+        this.el.classList.add('disabled');
+        this.el.style.pointerEvents = 'none';
+      }
+      if (this.updateButtonUI) this.updateButtonUI();
+    }
+  }
+
+  get tabStop() {
+    return this.el ? this.el.tabIndex >= 0 : this._tabStop !== false;
+  }
+  set tabStop(val) {
+    const isStop = (val === true || val === 'true' || val === 1 || val === '1');
+    this._tabStop = isStop;
+    if (this.el) {
+      this.el.tabIndex = isStop ? 0 : -1;
+    }
+  }
+  get tabstop() { return this.tabStop; }
+  set tabstop(val) { this.tabStop = val; }
 
   // Effects & Visualizer cycling properties
   get currentEffectType() {
@@ -685,6 +773,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
   const bgImage = xmlNode.getAttribute('image') || xmlNode.getAttribute('backgroundImage') || xmlNode.getAttribute('backgroundimage');
   const hoverImage = xmlNode.getAttribute('hoverImage') || xmlNode.getAttribute('hoverimage');
   const downImage = xmlNode.getAttribute('downImage') || xmlNode.getAttribute('downimage');
+  const disabledImage = xmlNode.getAttribute('disabledImage') || xmlNode.getAttribute('disabledimage');
 
   const transColor = xmlNode.getAttribute('transparencyColor') || xmlNode.getAttribute('transparencycolor') || parentTransColor;
   const clipColor = xmlNode.getAttribute('clippingColor') || xmlNode.getAttribute('clippingcolor') || parentClipColor;
@@ -697,6 +786,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
   let defaultBg = '';
   let hoverBg = '';
   let downBg = '';
+  let disabledBg = '';
 
   if (bgImage) {
     defaultBg = await getProcessedSkinImageURL(bgImage, transColor, clipColor);
@@ -722,6 +812,7 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
 
   if (hoverImage) hoverBg = await getProcessedSkinImageURL(hoverImage, transColor, clipColor);
   if (downImage) downBg = await getProcessedSkinImageURL(downImage, transColor, clipColor);
+  if (disabledImage) disabledBg = await getProcessedSkinImageURL(disabledImage, transColor, clipColor);
 
   const onClick = xmlNode.getAttribute('onClick') || xmlNode.getAttribute('onclick');
   const sticky = xmlNode.getAttribute('sticky') === 'true';
@@ -729,33 +820,51 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
 
   btnDiv.title = toolTip || '';
 
+  // Attach state to button element wrapper
+  const wrapper = new WMPElementWrapper(btnDiv, xmlNode);
+  wrapper.transColor = transColor;
+  wrapper.clipColor = clipColor;
+  wrapper._image = bgImage;
+  wrapper._hoverImage = hoverImage;
+  wrapper._downImage = downImage;
+  wrapper._disabledImage = disabledImage;
+  wrapper._defaultBg = defaultBg;
+  wrapper._hoverBg = hoverBg;
+  wrapper._downBg = downBg;
+  wrapper._disabledBg = disabledBg;
+
   // Wrapper states (useful if button is sticky like Mute)
-  const wrapperState = {
-    isDown: false,
-    updateButtonUI: () => {
-      if (wrapperState.isDown && downBg) {
-        btnDiv.style.backgroundImage = `url("${downBg}")`;
-      } else {
-        btnDiv.style.backgroundImage = `url("${defaultBg}")`;
-      }
+  wrapper.isDown = false;
+  wrapper.updateButtonUI = () => {
+    if (!wrapper.enabled && wrapper._disabledBg) {
+      btnDiv.style.backgroundImage = `url("${wrapper._disabledBg}")`;
+    } else if (wrapper.isDown && wrapper._downBg) {
+      btnDiv.style.backgroundImage = `url("${wrapper._downBg}")`;
+    } else {
+      btnDiv.style.backgroundImage = `url("${wrapper._defaultBg}")`;
     }
   };
 
   btnDiv.addEventListener('mouseenter', () => {
-    if (!wrapperState.isDown && hoverBg) btnDiv.style.backgroundImage = `url("${hoverBg}")`;
+    if (wrapper.enabled && !wrapper.isDown && wrapper._hoverBg) {
+      btnDiv.style.backgroundImage = `url("${wrapper._hoverBg}")`;
+    }
   });
 
   btnDiv.addEventListener('mouseleave', () => {
-    wrapperState.updateButtonUI();
+    wrapper.updateButtonUI();
   });
 
   btnDiv.addEventListener('mousedown', () => {
-    if (downBg) btnDiv.style.backgroundImage = `url("${downBg}")`;
+    if (wrapper.enabled && wrapper._downBg) {
+      btnDiv.style.backgroundImage = `url("${wrapper._downBg}")`;
+    }
   });
 
   btnDiv.addEventListener('mouseup', () => {
+    if (!wrapper.enabled) return;
     if (sticky) {
-      wrapperState.isDown = !wrapperState.isDown;
+      wrapper.isDown = !wrapper.isDown;
     }
     
     if (onClick) {
@@ -769,13 +878,17 @@ async function createStandaloneButton(xmlNode, parentTransColor, parentClipColor
       else if (tagName.startsWith('next')) window.player.controls.next();
     }
 
-    wrapperState.updateButtonUI();
+    wrapper.updateButtonUI();
   });
 
-  // Attach state to button element wrapper
-  const wrapper = new WMPElementWrapper(btnDiv, xmlNode);
-  Object.assign(wrapper, wrapperState);
   btnDiv.wmpWrapper = wrapper;
+
+  // Enforce initial disabled styling if necessary
+  if (!wrapper.enabled) {
+    btnDiv.classList.add('disabled');
+    btnDiv.style.pointerEvents = 'none';
+    wrapper.updateButtonUI();
+  }
 
   return btnDiv;
 }
