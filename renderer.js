@@ -488,7 +488,7 @@ async function renderElement(xmlNode, parentEl, parentTransColor, parentClipColo
     el = await createSlider(xmlNode, parentTransColor, parentClipColor, contextViewWrapper);
 
   } else if (tagName === 'text') {
-    el = createText(xmlNode);
+    el = createText(xmlNode, contextViewWrapper);
 
   } else if (tagName === 'effects') {
     el = createVisualizer(xmlNode, parentEl);

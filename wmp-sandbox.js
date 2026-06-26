@@ -90,6 +90,7 @@ function resolveWmpProp(path) {
     .replace(/player\./gi, 'window.player.')
     .replace(/view\./gi, 'window.view.')
     .replace(/theme\./gi, 'window.theme.')
+    .replace(/eq\./gi, 'window.eq.')
     .replace(/\.currentmedia/gi, '.currentMedia')
     .replace(/\.controls/gi, '.controls')
     .replace(/\.settings/gi, '.settings')

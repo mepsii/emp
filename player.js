@@ -309,7 +309,7 @@ class WMPSettings {
   }
 
   set mute(val) {
-    const m = !!val;
+    const m = (val === true || val === 'true' || val === 1 || val === '1');
     this.player.audio.muted = m;
     this.player.triggerEvent('mute_onchange');
   }

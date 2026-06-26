@@ -960,9 +960,29 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
   let fgBg = '';
   let thumbBg = '';
 
+  const borderSizeAttr = xmlNode.getAttribute('borderSize') || xmlNode.getAttribute('bordersize');
+  const borderSize = borderSizeAttr ? parseInt(borderSizeAttr) : 0;
+  const tiled = xmlNode.getAttribute('tiled') === 'true';
+  const direction = xmlNode.getAttribute('direction') || 'horizontal';
+
+  // Determine size
+  let sWidth = parseInt(width) || 100;
+  let sHeight = parseInt(height) || 20;
+
+  let bgImgObj = null;
   if (bgImage) {
     defaultBg = await getProcessedSkinImageURL(bgImage, transColor, clipColor);
-    sliderDiv.style.backgroundImage = `url("${defaultBg}")`;
+    const img = new Image();
+    img.src = defaultBg;
+    await new Promise(r => {
+      img.onload = () => {
+        bgImgObj = img;
+        if (!width) sWidth = img.width;
+        if (!height) sHeight = img.height;
+        r();
+      };
+      img.onerror = r;
+    });
   }
   if (foregroundImage) {
     fgBg = await getProcessedSkinImageURL(foregroundImage, transColor, clipColor);
@@ -971,42 +991,85 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
     thumbBg = await getProcessedSkinImageURL(thumbImage, transColor, clipColor);
   }
 
-  // Determine size
-  let sWidth = parseInt(width) || 100;
-  let sHeight = parseInt(height) || 20;
-
-  if (bgImage && (!width || !height)) {
-    const img = new Image();
-    img.src = defaultBg;
-    await new Promise(r => {
-      img.onload = () => {
-        if (!width) sWidth = img.width;
-        if (!height) sHeight = img.height;
-        r();
-      };
-      img.onerror = r;
-    });
-  }
-
   sliderDiv.style.width = sWidth + 'px';
   sliderDiv.style.height = sHeight + 'px';
 
+  if (bgImgObj) {
+    if (borderSize > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.style.position = 'absolute';
+      canvas.style.left = '0';
+      canvas.style.top = '0';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.pointerEvents = 'none';
+      sliderDiv.appendChild(canvas);
+
+      canvas.width = sWidth;
+      canvas.height = sHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        if (direction === 'vertical') {
+          // Top cap
+          ctx.drawImage(bgImgObj, 0, 0, bgImgObj.width, borderSize, 0, 0, sWidth, borderSize);
+          // Bottom cap
+          ctx.drawImage(bgImgObj, 0, bgImgObj.height - borderSize, bgImgObj.width, borderSize, 0, sHeight - borderSize, sWidth, borderSize);
+          // Middle track
+          const srcMiddleH = bgImgObj.height - 2 * borderSize;
+          const destMiddleH = sHeight - 2 * borderSize;
+          if (tiled && srcMiddleH > 0) {
+            let y = borderSize;
+            while (y < sHeight - borderSize) {
+              const drawH = Math.min(srcMiddleH, sHeight - borderSize - y);
+              ctx.drawImage(bgImgObj, 0, borderSize, bgImgObj.width, drawH, 0, y, sWidth, drawH);
+              y += srcMiddleH;
+            }
+          } else if (srcMiddleH > 0) {
+            ctx.drawImage(bgImgObj, 0, borderSize, bgImgObj.width, srcMiddleH, 0, borderSize, sWidth, destMiddleH);
+          }
+        } else {
+          // Left cap
+          ctx.drawImage(bgImgObj, 0, 0, borderSize, bgImgObj.height, 0, 0, borderSize, sHeight);
+          // Right cap
+          ctx.drawImage(bgImgObj, bgImgObj.width - borderSize, 0, borderSize, bgImgObj.height, sWidth - borderSize, 0, borderSize, sHeight);
+          // Middle track
+          const srcMiddleW = bgImgObj.width - 2 * borderSize;
+          const destMiddleW = sWidth - 2 * borderSize;
+          if (tiled && srcMiddleW > 0) {
+            let x = borderSize;
+            while (x < sWidth - borderSize) {
+              const drawW = Math.min(srcMiddleW, sWidth - borderSize - x);
+              ctx.drawImage(bgImgObj, borderSize, 0, drawW, bgImgObj.height, x, 0, drawW, sHeight);
+              x += srcMiddleW;
+            }
+          } else if (srcMiddleW > 0) {
+            ctx.drawImage(bgImgObj, borderSize, 0, srcMiddleW, bgImgObj.height, borderSize, 0, destMiddleW, sHeight);
+          }
+        }
+      }
+    } else {
+      sliderDiv.style.backgroundImage = `url("${defaultBg}")`;
+      sliderDiv.style.backgroundRepeat = 'no-repeat';
+      sliderDiv.style.backgroundSize = '100% 100%';
+    }
+  }
+
   // Create Foreground Fill element
   let fillEl = null;
-  const direction = xmlNode.getAttribute('direction') || 'horizontal';
   if (foregroundImage) {
     fillEl = document.createElement('div');
     fillEl.style.position = 'absolute';
-    fillEl.style.left = '0';
+    fillEl.style.left = '0px';
     fillEl.style.backgroundImage = `url("${fgBg}")`;
     fillEl.style.backgroundRepeat = xmlNode.getAttribute('tiled') === 'true' ? 'repeat-x' : 'no-repeat';
     if (direction === 'vertical') {
-      fillEl.style.bottom = '0';
+      fillEl.style.bottom = '0px';
       fillEl.style.width = '100%';
       fillEl.style.height = '0%';
       fillEl.style.backgroundPosition = 'bottom left';
     } else {
       fillEl.style.top = '0';
+      fillEl.style.left = '0px';
       fillEl.style.width = '0%';
       fillEl.style.height = '100%';
       fillEl.style.backgroundPosition = 'top left';
@@ -1018,6 +1081,44 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
   let thumbEl = null;
   let thumbW = 10;
   let thumbH = sHeight;
+
+  // Attach state fields to slider wrapper object
+  const wrapper = new WMPElementWrapper(sliderDiv, xmlNode);
+  wrapper.min = parseFloat(xmlNode.getAttribute('min')) || 0;
+  wrapper.max = parseFloat(xmlNode.getAttribute('max')) || 100;
+  wrapper.value = 0;
+  wrapper.direction = direction;
+  wrapper.isDragging = false;
+  sliderDiv.wmpWrapper = wrapper;
+
+  // Updates the visual fill and thumb position from slider value
+  wrapper.updateSliderUI = (val) => {
+    const range = wrapper.max - wrapper.min;
+    const pct = range > 0 ? (val - wrapper.min) / range : 0;
+    const clampedPct = Math.max(0, Math.min(1, pct));
+
+    if (wrapper.direction === 'vertical') {
+      const slideHeight = sHeight - 2 * borderSize;
+      const topPos = clampedPct * (slideHeight - thumbH);
+      if (thumbEl) {
+        thumbEl.style.top = (slideHeight - thumbH - topPos + borderSize) + 'px';
+        thumbEl.style.left = ((sWidth - thumbW) / 2) + 'px';
+      }
+      if (fillEl) {
+        fillEl.style.height = (clampedPct * 100) + '%';
+      }
+    } else {
+      const slideWidth = sWidth - 2 * borderSize;
+      const leftPos = clampedPct * (slideWidth - thumbW);
+      if (thumbEl) {
+        thumbEl.style.left = (leftPos + borderSize) + 'px';
+        thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
+      }
+      if (fillEl) {
+        fillEl.style.width = (clampedPct * 100) + '%';
+      }
+    }
+  };
 
   if (thumbImage) {
     thumbEl = document.createElement('div');
@@ -1043,6 +1144,8 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
         } else {
           thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
         }
+        // Force reposition thumb now that correct dimensions are known
+        wrapper.updateSliderUI(wrapper.value);
         r();
       };
       tImg.onerror = r;
@@ -1071,38 +1174,6 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
     });
   }
 
-  // Attach state fields to slider wrapper object
-  const wrapper = new WMPElementWrapper(sliderDiv, xmlNode);
-  wrapper.min = parseFloat(xmlNode.getAttribute('min')) || 0;
-  wrapper.max = parseFloat(xmlNode.getAttribute('max')) || 100;
-  wrapper.value = 0;
-  wrapper.direction = direction;
-  wrapper.isDragging = false;
-  sliderDiv.wmpWrapper = wrapper;
-
-  // Updates the visual fill and thumb position from slider value
-  wrapper.updateSliderUI = (val) => {
-    const range = wrapper.max - wrapper.min;
-    const pct = range > 0 ? (val - wrapper.min) / range : 0;
-    const clampedPct = Math.max(0, Math.min(1, pct));
-
-    if (wrapper.direction === 'vertical') {
-      const topPos = clampedPct * (sHeight - thumbH);
-      if (thumbEl) {
-        thumbEl.style.top = (sHeight - thumbH - topPos) + 'px';
-        thumbEl.style.left = ((sWidth - thumbW) / 2) + 'px';
-      }
-      if (fillEl) fillEl.style.height = (clampedPct * 100) + '%';
-    } else {
-      const leftPos = clampedPct * (sWidth - thumbW);
-      if (thumbEl) {
-        thumbEl.style.left = leftPos + 'px';
-        thumbEl.style.top = ((sHeight - thumbH) / 2) + 'px';
-      }
-      if (fillEl) fillEl.style.width = (clampedPct * 100) + '%';
-    }
-  };
-
   // Slider Interaction logic
   const handlePositionSelection = (e) => {
     const rect = sliderDiv.getBoundingClientRect();
@@ -1124,9 +1195,13 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
     } else {
       // Linear slider fallback
       if (wrapper.direction === 'vertical') {
-        pct = 1 - (y / sHeight);
+        const slideHeight = sHeight - 2 * borderSize;
+        const yInside = y - borderSize;
+        pct = 1 - (yInside / slideHeight);
       } else {
-        pct = x / sWidth;
+        const slideWidth = sWidth - 2 * borderSize;
+        const xInside = x - borderSize;
+        pct = xInside / slideWidth;
       }
     }
 
@@ -1169,7 +1244,7 @@ async function createSlider(xmlNode, parentTransColor, parentClipColor, contextV
   return sliderDiv;
 }
 
-function createText(xmlNode) {
+function createText(xmlNode, contextViewWrapper) {
   const left = xmlNode.getAttribute('left') || '0';
   const top = xmlNode.getAttribute('top') || '0';
   const width = xmlNode.getAttribute('width') || '100';
@@ -1188,6 +1263,24 @@ function createText(xmlNode) {
   const fsAttr = xmlNode.getAttribute('fontSize') || xmlNode.getAttribute('fontsize') || '10';
   span.style.fontSize = fsAttr + 'pt';
   span.style.textAlign = (xmlNode.getAttribute('justification') || xmlNode.getAttribute('justification') || 'left').toLowerCase();
+
+  const fontStyle = xmlNode.getAttribute('fontStyle') || xmlNode.getAttribute('fontstyle');
+  if (fontStyle) {
+    const fsLower = fontStyle.toLowerCase();
+    if (fsLower.includes('italic')) {
+      span.style.fontStyle = 'italic';
+    }
+    if (fsLower.includes('bold')) {
+      span.style.fontWeight = 'bold';
+    }
+  }
+
+  const cursor = xmlNode.getAttribute('cursor');
+  if (cursor === 'hand') {
+    span.style.cursor = 'pointer';
+  } else if (cursor) {
+    span.style.cursor = cursor;
+  }
   
   const initialValue = xmlNode.getAttribute('value') || '';
   const scrolling = xmlNode.getAttribute('scrolling') === 'true';
@@ -1247,6 +1340,21 @@ function createText(xmlNode) {
     setInterval(scrollInterval, 16);
   } else {
     span.textContent = initialValue;
+  }
+
+  const toolTip = xmlNode.getAttribute('toolTip') || xmlNode.getAttribute('tooltip') || xmlNode.getAttribute('upToolTip') || xmlNode.getAttribute('uptooltip');
+  if (toolTip) {
+    span.title = toolTip;
+  }
+
+  const wrapper = new WMPElementWrapper(span, xmlNode);
+  span.wmpWrapper = wrapper;
+
+  const onClick = xmlNode.getAttribute('onClick') || xmlNode.getAttribute('onclick');
+  if (onClick) {
+    span.addEventListener('click', () => {
+      executeScriptWithContext(onClick, contextViewWrapper);
+    });
   }
 
   return span;
@@ -1357,6 +1465,14 @@ class WMPEqualizerSettings {
     this.gainLevel10 = 0;
     this.truBassLevel = 0;
     this.wowLevel = 0;
+    if (window.player) {
+      if (window.player.audio) {
+        window.player.audio.balance = 0;
+      }
+      if (window.player.settings) {
+        window.player.settings.balance = 0;
+      }
+    }
   }
 
   nextPreset() {
